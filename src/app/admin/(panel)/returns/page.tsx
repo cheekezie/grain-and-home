@@ -23,7 +23,7 @@ export default async function ReturnsPage({ searchParams }: PageProps<"/admin/re
   );
 
   return (
-    <div className="max-w-5xl">
+    <div className="w-full">
       <h1 className="font-display text-4xl">Returns</h1>
       <p className="mt-2 text-muted">Requests customers send from the returns form. Reply with the supplier&rsquo;s instructions; refund in Stripe once it&rsquo;s on its way back.</p>
       <nav aria-label="Filter by status" className="mt-6 flex flex-wrap gap-2">

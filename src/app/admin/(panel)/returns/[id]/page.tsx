@@ -49,7 +49,7 @@ export default async function ReturnPage({ params }: PageProps<"/admin/returns/[
   const mailto = `mailto:${r.email}?subject=${encodeURIComponent(`Your return R${r.number} (order #${r.orderNumber})`)}&body=${encodeURIComponent(reply)}`;
 
   return (
-    <div className="max-w-5xl">
+    <div className="w-full">
       <BackLink href="/admin/returns" label="Returns" />
       <div className="mt-2 flex flex-wrap items-baseline gap-3">
         <h1 className="font-display text-4xl">Return R{r.number}</h1>

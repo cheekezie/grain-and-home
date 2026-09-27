@@ -10,7 +10,7 @@ export default async function SubscribersPage() {
   const subs = await adminSubscribers();
   const active = subs.filter((s) => !s.unsubscribed);
   return (
-    <div className="max-w-5xl">
+    <div className="w-full">
       <PageHead title="Email subscribers" />
       <p className="mt-4 max-w-2xl text-[15px]">
         People who signed up for offers and new pieces. The shop doesn&rsquo;t send emails itself: download the list into a mail

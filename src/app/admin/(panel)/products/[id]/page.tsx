@@ -9,7 +9,7 @@ export default async function EditProductPage({ params }: PageProps<"/admin/prod
   const { id } = await params;
   const [p, suppliers] = await Promise.all([adminProduct(id), adminSuppliers()]);
   return (
-    <div className="max-w-6xl">
+    <div className="w-full">
       <EditHeader backHref="/admin/products" backLabel="Products" title={p.name} status={p.status} liveHref={`/products/${p.slug}`} />
       <ProductEditor
         isNew={false}

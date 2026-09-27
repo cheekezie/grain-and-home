@@ -8,7 +8,7 @@ export default async function EditSupplierPage({ params, searchParams }: PagePro
   const { id } = await params;
   const [s, sp] = await Promise.all([adminSupplier(id), searchParams]);
   return (
-    <div className="max-w-6xl">
+    <div className="w-full">
       <EditHeader backHref="/admin/suppliers" backLabel="Suppliers" title={s.name} />
       {sp.blocked === "1" && (
         <p role="alert" className="mb-6 rounded-xl border border-danger/30 bg-white p-4 font-semibold text-danger">

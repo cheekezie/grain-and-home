@@ -6,7 +6,7 @@ export const metadata = { title: "Suppliers" };
 export default async function SuppliersPage() {
   const [suppliers, products] = await Promise.all([adminSuppliers(), adminProducts()]);
   return (
-    <div className="max-w-5xl">
+    <div className="w-full">
       <PageHead title="Suppliers" newHref="/admin/suppliers/new" newLabel="Add supplier" />
       <p className="mt-4 max-w-2xl text-[15px] text-muted">The vendors you order from on customers&rsquo; behalf. Never shown on the shop.</p>
       <AdminList

@@ -17,7 +17,7 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
   const margin = cost != null ? marginPercent(o.total, cost) : null;
 
   return (
-    <div className="max-w-5xl">
+    <div className="w-full">
       <BackLink href="/admin/orders" label="Orders" />
       <div className="mt-2 flex flex-wrap items-baseline gap-3">
         <h1 className="font-display text-4xl">Order #{o.number}</h1>

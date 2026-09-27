@@ -27,7 +27,7 @@ export default async function StockPage() {
   const due = live.filter((p) => (age(p.availabilityCheckedAt) ?? 9999) > STALE_AVAILABILITY_DAYS).length;
 
   return (
-    <div className="max-w-5xl">
+    <div className="w-full">
       <h1 className="font-display text-4xl">Stock check</h1>
       <p className="mt-2 max-w-2xl text-[15px] text-muted">
         Check each live product with its supplier and click its current status. Checks older than {STALE_AVAILABILITY_DAYS} days are

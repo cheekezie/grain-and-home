@@ -24,7 +24,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/admin/ord
   );
 
   return (
-    <div className="max-w-5xl">
+    <div className="w-full">
       <h1 className="font-display text-4xl">Orders</h1>
       <nav aria-label="Filter by status" className="mt-6 flex flex-wrap gap-2">
         {tab(undefined, "All")}

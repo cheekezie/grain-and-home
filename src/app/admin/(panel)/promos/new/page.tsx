@@ -9,7 +9,7 @@ export const metadata = { title: "Add promo code" };
 export default async function NewPromoPage() {
   const products = await adminProducts();
   return (
-    <div className="max-w-6xl">
+    <div className="w-full">
       <EditHeader backHref="/admin/promos" backLabel="Promo codes" title="Add promo code" />
       <PromoEditor
         action={savePromo.bind(null, null)}

@@ -9,7 +9,7 @@ export default async function EditPromoPage({ params }: PageProps<"/admin/promos
   const { id } = await params;
   const [p, products] = await Promise.all([adminPromo(id), adminProducts()]);
   return (
-    <div className="max-w-6xl">
+    <div className="w-full">
       <EditHeader backHref="/admin/promos" backLabel="Promo codes" title={p.code} />
       <p className="-mt-4 mb-6 text-[15px] text-muted">
         {promoState(p)}. Used {p.usedCount}{p.maxUses ? ` of ${p.maxUses}` : ""} time{p.usedCount === 1 ? "" : "s"}.

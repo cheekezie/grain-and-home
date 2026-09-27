@@ -9,7 +9,7 @@ export const metadata = { title: "Promo codes" };
 export default async function PromosPage() {
   const promos = await adminPromos();
   return (
-    <div className="max-w-5xl">
+    <div className="w-full">
       <PageHead title="Promo codes" newHref="/admin/promos/new" newLabel="Add promo code" />
       <p className="mt-4 max-w-2xl text-[15px] text-muted">
         Codes customers enter at checkout. Tick &ldquo;Announce&rdquo; on one to show it in the offer bar and pop-up, or &ldquo;Welcome&rdquo; to give it to new email subscribers.

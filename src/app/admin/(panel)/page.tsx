@@ -34,7 +34,7 @@ export default async function Overview() {
   );
 
   return (
-    <div className="max-w-5xl space-y-10">
+    <div className="w-full space-y-10">
       <h1 className="font-display text-4xl">Overview</h1>
 
       {warnings.length > 0 && (

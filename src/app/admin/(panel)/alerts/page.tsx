@@ -11,7 +11,7 @@ export const metadata = { title: "Back in stock requests" };
 export default async function AlertsPage() {
   const groups = await adminStockAlerts();
   return (
-    <div className="max-w-5xl">
+    <div className="w-full">
       <PageHead title="Back in stock requests" />
       <p className="mt-4 max-w-2xl text-[15px] text-muted">
         People waiting for an out-of-stock product. When it&rsquo;s back, email them (the shop doesn&rsquo;t send emails itself), then mark them as emailed.

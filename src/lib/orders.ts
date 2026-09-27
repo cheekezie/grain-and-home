@@ -7,6 +7,7 @@ import ProductModel from "@/models/Product";
 import SupplierModel from "@/models/Supplier";
 import { nextSequence } from "@/models/Counter";
 import PromoCodeModel from "@/models/PromoCode";
+import { fetchStripeFee } from "./stripeFees";
 
 /**
  * Turn a paid Checkout session into an Order. Idempotent: Stripe retries
@@ -78,6 +79,13 @@ export async function createOrderFromSession(session: Stripe.Checkout.Session): 
     // Two deliveries racing past the exists() check: the unique index wins.
     if ((e as { code?: number }).code === 11000) return "exists";
     throw e;
+  }
+  // Record the real Stripe fee for profit reporting (if not settled yet,
+  // the Insights page fills it in later).
+  const piId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
+  if (piId) {
+    const fee = await fetchStripeFee(piId);
+    if (fee != null) await OrderModel.updateOne({ stripeCheckoutId: session.id }, { $set: { stripeFee: fee } });
   }
   // Count the redemption only once the order exists (so retries don't double count).
   if (m.promoCode) await PromoCodeModel.updateOne({ code: m.promoCode }, { $inc: { usedCount: 1 } });

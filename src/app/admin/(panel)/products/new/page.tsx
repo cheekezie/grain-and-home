@@ -9,7 +9,7 @@ export const metadata = { title: "Add product" };
 export default async function NewProductPage() {
   const suppliers = await adminSuppliers();
   return (
-    <div className="max-w-6xl">
+    <div className="w-full">
       <EditHeader backHref="/admin/products" backLabel="Products" title="Add product" />
       <ProductEditor
         isNew

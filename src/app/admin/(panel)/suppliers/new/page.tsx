@@ -8,7 +8,7 @@ export const metadata = { title: "Add supplier" };
 export default async function NewSupplierPage() {
   await requireAdmin();
   return (
-    <div className="max-w-6xl">
+    <div className="w-full">
       <EditHeader backHref="/admin/suppliers" backLabel="Suppliers" title="Add supplier" />
       <SupplierEditor
         action={saveSupplier.bind(null, null)}

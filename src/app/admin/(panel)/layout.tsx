@@ -21,6 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         subtitle="Store admin"
         items={[
           { href: "/admin", label: "Overview" },
+          { href: "/admin/insights", label: "Insights" },
           { href: "/admin/orders", label: "Orders", badge: counts.paid ?? 0 },
           { href: "/admin/returns", label: "Returns", badge: returns.new ?? 0 },
           { href: "/admin/products", label: "Products" },

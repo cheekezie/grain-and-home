@@ -69,3 +69,4 @@ earlier state: ../dropship-store-backup-2026-09-26.tgz). See README.md.
   checked on blur (postcodes.io) and fills the town only if empty. The
   Ideal Postcodes pick-list stays dormant unless its key is set.
 - Admin feedback: creating a record returns to its list with a toast (flash param read by AdminFlash); saving shows a "Saved" toast; deleting returns to the list with a toast. Inner pages use BackLink ("← Back to …").
+- Insights (`/admin/insights`, 2026-09-27): revenue = what customers paid on orders not cancelled/refunded; profit = revenue - supplier cost snapshot on the order - real Stripe fee (`Order.stripeFee`, from the charge's balance transaction, backfilled on page load) - fees kept on refunds. Product margins come from product price/cost. CSV at /admin/insights/export. Note: pricing rule 'cost + 33 0s a 33% markup = 25% margin.

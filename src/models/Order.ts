@@ -55,6 +55,8 @@ const orderSchema = new Schema(
     /** Promo code used and the amount it took off (pence). */
     promoCode: String,
     discount: { type: Number, default: 0 },
+    /** Actual Stripe fee in pence, read from Stripe after payment (null until known). */
+    stripeFee: Number,
     currency: { type: String, default: "gbp" },
     events: { type: [eventSchema], default: [] },
   },
