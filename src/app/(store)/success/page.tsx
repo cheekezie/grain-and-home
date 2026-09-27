@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import ClearCartOnLoad from "@/components/ClearCartOnLoad";
 import { connectDB } from "@/lib/db";
+import { mailConfigured } from "@/lib/mail/config";
 import OrderModel from "@/models/Order";
 
 export const metadata: Metadata = { title: "Order confirmed", robots: { index: false } };
@@ -39,8 +40,11 @@ export default function SuccessPage(props: PageProps<"/success">) {
         <OrderNumber searchParams={props.searchParams} />
       </Suspense>
       <p className="mt-4 text-muted">
-        Stripe will email your payment receipt. We&rsquo;ll contact you by email or phone with delivery details once
-        your order is on its way.
+        {mailConfigured() ? (
+          <>We&rsquo;ve emailed your order confirmation. We&rsquo;ll email you again when your order is on its way, with a link to track it.</>
+        ) : (
+          <>Stripe will email your payment receipt. We&rsquo;ll contact you by email or phone with delivery details once your order is on its way.</>
+        )}
       </p>
       <Link href="/" className="mt-8 inline-block font-semibold text-moss underline underline-offset-4">Continue shopping</Link>
     </div>

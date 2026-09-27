@@ -3,7 +3,7 @@ import Link from "next/link";
 import PolicyPage from "@/components/store/PolicyPage";
 import { siteConfig } from "@/lib/siteConfig";
 
-export const metadata: Metadata = { title: "Returns and cancellations" };
+export const metadata: Metadata = { title: "Returns and cancellations", alternates: { canonical: "/returns" } };
 
 // Follows the Consumer Contracts Regulations 2013 as summarised on GOV.UK:
 // 14 days to cancel from delivery, 14 more to return, refund within 14 days

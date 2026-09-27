@@ -3,6 +3,7 @@ import { SupplierEditor } from "@/components/admin/editors";
 import { DeleteButton } from "@/components/admin/fields";
 import { adminSupplier } from "@/lib/admin/queries";
 import { deleteSupplier, saveSupplier } from "@/app/admin/actions";
+import { orderingInbox } from "@/lib/mail/inboxSettings";
 
 export default async function EditSupplierPage({ params, searchParams }: PageProps<"/admin/suppliers/[id]">) {
   const { id } = await params;
@@ -19,9 +20,10 @@ export default async function EditSupplierPage({ params, searchParams }: PagePro
         action={saveSupplier.bind(null, id)}
         initial={{
           name: s.name, website: s.website ?? "", orderUrl: s.orderUrl ?? "", contactEmail: s.contactEmail ?? "",
-          contactPhone: s.contactPhone ?? "", accountRef: s.accountRef ?? "", notes: s.notes, returnInstructions: s.returnInstructions, active: s.active,
+          contactPhone: s.contactPhone ?? "", accountRef: s.accountRef ?? "", notes: s.notes, returnInstructions: s.returnInstructions, whiteLabel: s.whiteLabel, senderDomains: s.senderDomains.join(", "), autoCustomerUpdates: s.autoCustomerUpdates, active: s.active,
         }}
         aside={<DeleteButton key="delete" action={deleteSupplier.bind(null, id)} label="this supplier" />}
+        orderingInbox={await orderingInbox()}
       />
     </div>
   );

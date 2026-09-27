@@ -4,8 +4,8 @@
 // check it against each supplier's own exclusions and edit to match.
 
 // Whole areas (letters only) and districts given as "AREA" + number ranges.
-const EXCLUDED_AREAS = ["BT", "GY", "JE", "IM", "HS", "ZE", "KW", "IV"];
-const EXCLUDED_DISTRICTS: Record<string, [number, number][]> = {
+export const EXCLUDED_AREAS = ["BT", "GY", "JE", "IM", "HS", "ZE", "KW", "IV"];
+export const EXCLUDED_DISTRICTS: Record<string, [number, number][]> = {
   AB: [[31, 38], [44, 56]],
   FK: [[17, 21]],
   KA: [[27, 28]],
@@ -35,4 +35,12 @@ export function checkDeliveryPostcode(input: string): PostcodeCheck {
     return { ok: false, reason: "excluded", postcode };
   }
   return { ok: true, postcode };
+}
+
+/** Every excluded postcode prefix (areas and districts), e.g. "BT", "AB31". For structured data and feeds. */
+export function excludedPostcodePrefixes(): string[] {
+  const districts = Object.entries(EXCLUDED_DISTRICTS).flatMap(([area, ranges]) =>
+    ranges.flatMap(([lo, hi]) => Array.from({ length: hi - lo + 1 }, (_, i) => `${area}${lo + i}`)),
+  );
+  return [...EXCLUDED_AREAS, ...districts];
 }

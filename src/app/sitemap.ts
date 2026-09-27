@@ -11,6 +11,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     ...["", "/delivery", "/returns", "/terms", "/privacy", "/contact"].map((p) => ({ url: u(p) })),
     ...CATEGORIES.map((c) => ({ url: u(`/shop/${c.slug}`) })),
-    ...products.map((p) => ({ url: u(`/products/${p.slug}`), lastModified: p.updatedAt ? new Date(p.updatedAt) : undefined })),
+    ...products.map((p) => ({ url: u(`/products/${p.slug}`), lastModified: p.updatedAt ? new Date(p.updatedAt) : undefined, images: p.images })),
   ];
 }

@@ -2,9 +2,17 @@ import ProductCard from "@/components/store/ProductCard";
 import { HeroRoom, RoomTiles } from "@/components/store/HomeHero";
 import { getPaymentMethods } from "@/lib/paymentMethods";
 import { RecentlyViewed } from "@/components/store/ShopperRows";
+import JsonLd from "@/components/JsonLd";
+import { organisationJsonLd, shareMeta } from "@/lib/seo";
+import { siteConfig } from "@/lib/siteConfig";
+import type { Metadata } from "next";
 import { getCategoryCounts, getFeatured } from "@/lib/store";
 
 export const revalidate = 300;
+
+export const metadata: Metadata = {
+  ...shareMeta({ title: `${siteConfig.name}: furniture delivered across mainland UK`, description: siteConfig.tagline, path: "/" }),
+};
 
 export default async function HomePage() {
   const [featured, counts, marks] = await Promise.all([getFeatured(), getCategoryCounts(), getPaymentMethods()]);
@@ -12,6 +20,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <JsonLd data={organisationJsonLd()} />
       <HeroRoom klarna={klarna} />
       <RoomTiles counts={counts} />
       <RecentlyViewed title="Pick up where you left off" />

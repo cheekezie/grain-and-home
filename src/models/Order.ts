@@ -12,8 +12,12 @@ const orderItemSchema = new Schema(
     slug: String,
     name: { type: String, required: true },
     image: String,
+    /** What the customer paid per unit, after any promo discount. */
     unitPrice: { type: Number, required: true },
+    /** Price per unit before discount (for receipts). */
+    listUnitPrice: Number,
     quantity: { type: Number, required: true, min: 1 },
+    supplier: { type: Schema.Types.ObjectId, ref: "Supplier" },
     supplierName: String,
     supplierSku: String,
     supplierUrl: String,
@@ -59,6 +63,11 @@ const orderSchema = new Schema(
     stripeFee: Number,
     currency: { type: String, default: "gbp" },
     events: { type: [eventSchema], default: [] },
+    /** Emails we've sent the customer about this order. */
+    emails: {
+      type: [new Schema({ at: { type: Date, default: () => new Date() }, kind: String, subject: String, to: String }, { _id: false })],
+      default: [],
+    },
   },
   { timestamps: true },
 );

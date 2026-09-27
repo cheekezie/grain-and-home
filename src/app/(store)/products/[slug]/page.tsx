@@ -6,7 +6,10 @@ import ProductGallery from "@/components/store/ProductGallery";
 import PaymentMethods from "@/components/store/PaymentMethods";
 import { AVAILABILITY_LABELS, DELIVERY_LABELS, PURCHASABLE, categoryName } from "@/lib/catalogue";
 import { formatPrice } from "@/lib/money";
-import { getProduct } from "@/lib/store";
+import { getProduct, getRelated } from "@/lib/store";
+import JsonLd from "@/components/JsonLd";
+import ProductCard from "@/components/store/ProductCard";
+import { breadcrumbJsonLd, productJsonLd, shareMeta } from "@/lib/seo";
 import { getAnnouncedPromo } from "@/lib/promos";
 import { formatLondonDay } from "@/lib/londonDate";
 import SaveButton from "@/components/store/SaveButton";
@@ -18,7 +21,9 @@ export const revalidate = 300;
 
 export async function generateMetadata({ params }: PageProps<"/products/[slug]">): Promise<Metadata> {
   const p = await getProduct((await params).slug);
-  return p ? { title: p.name, description: p.summary, openGraph: p.images[0] ? { images: [p.images[0].url] } : undefined } : {};
+  if (!p) return {};
+  const description = `${p.summary} ${formatPrice(p.price)}, free delivery to mainland UK.`;
+  return { title: p.name, description, ...shareMeta({ title: p.name, description, path: `/products/${p.slug}`, image: p.images[0]?.url }) };
 }
 
 const ASSEMBLY = { none: "Arrives assembled", partial: "Some assembly required", required: "Self-assembly required" } as const;
@@ -27,7 +32,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
   const p = await getProduct((await params).slug);
   if (!p) notFound();
   const purchasable = PURCHASABLE.includes(p.availability);
-  const promo = await getAnnouncedPromo();
+  const [promo, related] = await Promise.all([getAnnouncedPromo(), getRelated(p.id, p.category)]);
   const promoApplies =
     promo && (promo.scope === "all" || (promo.scope === "products" ? promo.productIds.includes(p.id) : promo.categories.includes(p.category)));
   const shopperItem = { productId: p.id, slug: p.slug, name: p.name, image: p.images[0]?.url ?? null };
@@ -43,6 +48,12 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
 
   return (
     <div className="mx-auto max-w-7xl px-4 pt-8 sm:px-6">
+      <JsonLd
+        data={[
+          productJsonLd(p),
+          breadcrumbJsonLd([{ name: "Home", path: "/" }, { name: categoryName(p.category), path: `/shop/${p.category}` }, { name: p.name, path: `/products/${p.slug}` }]),
+        ]}
+      />
       <nav aria-label="Breadcrumb" className="text-[14px] text-muted">
         <Link href={`/shop/${p.category}`} className="hover:text-moss hover:underline">{categoryName(p.category)}</Link>
       </nav>
@@ -122,6 +133,14 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
         <h2 className="font-display text-3xl">About this piece</h2>
         <div className="mt-4 whitespace-pre-line text-[16px] leading-relaxed">{p.description}</div>
       </section>
+      {related.length > 0 && (
+        <section className="mt-16">
+          <h2 className="font-display text-3xl">You might also like</h2>
+          <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-4">
+            {related.map((r) => <ProductCard key={r.id} product={r} />)}
+          </div>
+        </section>
+      )}
       <RecordView item={shopperItem} />
       <RecentlyViewed exclude={p.id} />
     </div>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
-import { marketingCounts, orderCounts, returnCounts } from "@/lib/admin/queries";
+import { marketingCounts, orderCounts, returnCounts, supplierEmailCounts } from "@/lib/admin/queries";
 import { siteConfig } from "@/lib/siteConfig";
 import { logout } from "../actions";
 import AdminSidebar from "@/components/admin/AdminSidebar";
@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: { default: "Admin", template: `%s | $
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireAdmin();
-  const [counts, returns, marketing] = await Promise.all([orderCounts(), returnCounts(), marketingCounts()]);
+  const [counts, returns, marketing, mail] = await Promise.all([orderCounts(), returnCounts(), marketingCounts(), supplierEmailCounts()]);
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[220px_1fr]">
       <AdminSidebar
@@ -24,7 +24,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           { href: "/admin/insights", label: "Insights" },
           { href: "/admin/orders", label: "Orders", badge: counts.paid ?? 0 },
           { href: "/admin/returns", label: "Returns", badge: returns.new ?? 0 },
+          { href: "/admin/supplier-emails", label: "Supplier emails", badge: (mail.new ?? 0) + (mail.unmatched ?? 0) },
           { href: "/admin/products", label: "Products" },
+          { href: "/admin/rooms", label: "Room pages" },
           { href: "/admin/stock", label: "Stock check" },
           { href: "/admin/suppliers", label: "Suppliers" },
           { href: "/admin/promos", label: "Promo codes" },

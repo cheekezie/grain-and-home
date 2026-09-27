@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import PolicyPage from "@/components/store/PolicyPage";
 
-export const metadata: Metadata = { title: "Delivery" };
+export const metadata: Metadata = { title: "Delivery", alternates: { canonical: "/delivery" } };
 
 export default function DeliveryPage() {
   return (

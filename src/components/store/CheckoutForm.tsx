@@ -8,6 +8,7 @@ import { checkDeliveryPostcode } from "@/lib/delivery";
 import type { CartItem } from "@/lib/types";
 import QuantityStepper from "./QuantityStepper";
 import { forgetClaimedPromo, readClaimedPromo } from "@/lib/marketing";
+import ShopImage from "@/components/store/ShopImage";
 
 type Delivery = { email: string; name: string; phone: string; line1: string; line2: string; city: string; postcode: string };
 type Address = { line1: string; line2: string; city: string; postcode: string };
@@ -342,8 +343,7 @@ export default function CheckoutForm({
             <li key={i.productId} className="flex gap-3 py-3">
               <span className="relative block size-16 shrink-0 overflow-hidden rounded-lg bg-white">
                 {i.image && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={i.image} alt="" className="absolute inset-0 size-full object-contain p-1.5" />
+                  <ShopImage src={i.image} alt="" sizes="64px" className="object-contain p-1.5" />
                 )}
               </span>
               <div className="min-w-0 flex-1 text-[15px]">

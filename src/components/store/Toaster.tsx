@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { onToast, type Toast } from "@/lib/toast";
 import { useConsent } from "@/lib/consent";
+import ShopImage from "@/components/store/ShopImage";
 
 const SHOW_MS = 4500;
 const SHOW_WITH_ACTION_MS = 7000;
@@ -41,8 +42,7 @@ export default function Toaster({ consentAware = true }: { consentAware?: boolea
         >
           {toast.image && (
             <span className="relative block size-14 shrink-0 overflow-hidden rounded-lg bg-plaster">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={toast.image} alt="" className="absolute inset-0 size-full object-contain p-1 mix-blend-multiply" />
+              <ShopImage src={toast.image} alt="" sizes="56px" className="object-contain p-1 mix-blend-multiply" />
             </span>
           )}
           <div className="min-w-0 flex-1 text-[15px]">

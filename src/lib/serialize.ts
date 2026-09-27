@@ -60,6 +60,9 @@ export function toSupplier(s: Lean): T.Supplier {
     accountRef: s.accountRef || undefined,
     notes: s.notes ?? "",
     returnInstructions: s.returnInstructions ?? "",
+    whiteLabel: !!s.whiteLabel,
+    senderDomains: s.senderDomains ?? [],
+    autoCustomerUpdates: !!s.autoCustomerUpdates,
     active: s.active !== false,
   };
 }
@@ -81,6 +84,7 @@ export function toOrder(o: Lean): T.Order {
       image: i.image || undefined,
       unitPrice: i.unitPrice,
       quantity: i.quantity,
+      supplierId: i.supplier ? String(i.supplier) : undefined,
       supplierName: i.supplierName || undefined,
       supplierSku: i.supplierSku || undefined,
       supplierUrl: i.supplierUrl || undefined,
@@ -92,6 +96,7 @@ export function toOrder(o: Lean): T.Order {
     promoCode: o.promoCode || undefined,
     discount: o.discount ?? 0,
     stripePaymentIntentId: o.stripePaymentIntentId || undefined,
+    emails: (o.emails ?? []).map((m: Lean) => ({ at: iso(m.at) ?? "", kind: m.kind ?? "", subject: m.subject ?? "" })),
     events: (o.events ?? []).map((e: Lean) => ({ at: iso(e.at) ?? "", status: e.status || undefined, note: e.note ?? "" })),
     createdAt: iso(o.createdAt) ?? "",
     updatedAt: iso(o.updatedAt) ?? "",

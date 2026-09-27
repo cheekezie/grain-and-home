@@ -110,3 +110,76 @@ step (Royal Mail data, about 4.5p per lookup, 50 free on sign-up). The
 code for it is already in place. No free UK street-address source was
 found (OS Places is excluded from Ordnance Survey's free allowance;
 getAddress.io now covers Australia).
+
+## Search engines (SEO)
+
+Built in: sitemap (`/sitemap.xml`, with product images), `robots.txt`,
+canonical URLs, share previews (Open Graph / Twitter cards), structured
+data (Product with price, stock, free delivery, the postcodes we don't
+deliver to, 14-day returns; breadcrumbs; the shop itself), optimised
+product photos (resized, AVIF/WebP), "You might also like" links, and
+editable room pages (Admin → Room pages: intro, Google description,
+buying guide).
+
+After going live on the real domain:
+1. **Google Search Console** (free): add the domain, submit
+   `https://<domain>/sitemap.xml`.
+2. **Google Merchant Center** (free listings on Google Shopping): add a
+   product feed as a *scheduled fetch* of `https://<domain>/feed/google.xml`
+   (updates hourly), and enter the returns policy (14 days) and free
+   mainland-UK shipping in the Merchant Center settings.
+3. Test pages with Google's Rich Results Test.
+4. Write the room buying guides in the admin.
+
+Products are listed with the shop's name as the brand and no barcodes
+(`identifier_exists: no`). If Merchant Center flags a listing's brand,
+switch to the maker's brand in the feed.
+
+## Customer delivery emails (Zoho)
+
+Each supplier is either:
+
+- **White label** (e.g. Artisan): they deliver unbranded and never contact
+  the customer. Add the tracking link on the order; marking it dispatched
+  (or "Email the customer" on the order page) emails the customer.
+- **Not white label** (e.g. Wayfair, Amazon): order on the customer's
+  behalf using your ordering inbox as the contact email (shown on each order)
+  and the customer's delivery address. Save the supplier's order number on
+  the order. Their emails arrive in your Zoho inbox; the shop reads the
+  ones from the supplier's domains, matches them to the order by that
+  number, and lists them in **Admin → Supplier emails** to update the order
+  and email the customer from you. Tick "Email customers automatically" on
+  a supplier once you trust it. Tracking links on the supplier's own site
+  are never passed on (they'd show the supplier's name); carrier links are.
+
+Setup (two Zoho services: ZeptoMail sends, Zoho Mail receives):
+
+1. **Sending — ZeptoMail** (same as Attesta Tickets): verify
+   grainandhome.co.uk in ZeptoMail, then Mail Agents → your agent →
+   SMTP/API → copy the **Send Mail** token. Set `ZOHO_ZEPTOMAIL_TOKEN`,
+   `ZOHO_ZEPTOMAIL_FROM` (e.g. orders@grainandhome.co.uk) and optionally
+   `ZOHO_ZEPTOMAIL_FROM_NAME`. If your ZeptoMail account is in the EU data
+   centre (zeptomail.eu), also set
+   `ZOHO_ZEPTOMAIL_API_URL=https://api.zeptomail.eu/v1.1/email`.
+2. **Ordering inbox** (Admin → Supplier emails → Ordering inbox): the email
+   address you give non-white-label suppliers when ordering, its **app
+   password** and the provider (Zoho EU/.com, Zoho business, Gmail, other).
+   "Save and test" logs in to check it works. The password is stored
+   encrypted with `SETTINGS_ENCRYPTION_KEY` (set it in the environment; keep
+   it, or you'll need to re-enter the password). IMAP must be available on
+   the account (not on Zoho's free plan).
+3. On each non-white-label supplier, set their email domains.
+4. **Instant delivery — Zoho Mail webhook** (recommended, once live): in
+   Zoho Mail go to Settings → Integrations → Developer Space → Outgoing
+   Webhooks, add one for **Mail** with a condition per supplier (e.g.
+   "From contains wayfair") and paste the URL shown in Admin → Supplier
+   emails (it includes the secret `ZOHO_MAIL_WEBHOOK_KEY`). Zoho sends its
+   signing secret on the first call; the shop keeps it and checks the
+   signature on every call after. The panel shows "Connected" and the last
+   call. (Check your Zoho plan shows Developer Space.)
+5. **Backup — inbox check:** "Check inbox now" in Admin → Supplier emails,
+   or on a schedule (below). Needed only for anything the webhook missed
+   while the site was down; the same email is never recorded twice.
+
+Only emails from suppliers' domains are stored; the rest of the inbox is
+left untouched.

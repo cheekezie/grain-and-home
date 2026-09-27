@@ -108,6 +108,12 @@ export const supplierSchema = z.object({
   accountRef: optionalText(80),
   notes: optionalText(5000),
   returnInstructions: optionalText(5000),
+  whiteLabel: z.boolean(),
+  senderDomains: z
+    .string()
+    .transform((s) => s.split(/[\s,]+/).map((d) => d.trim().toLowerCase().replace(/^@/, "").replace(/^https?:\/\//, "").replace(/\/.*$/, "")).filter(Boolean))
+    .pipe(z.array(z.string().regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/, "Domains like wayfair.co.uk, separated by commas")).max(10)),
+  autoCustomerUpdates: z.boolean(),
   active: z.boolean(),
 });
 
@@ -194,6 +200,12 @@ export const promoSchema = z
       welcome: p.welcome,
     };
   });
+
+export const roomSchema = z.object({
+  intro: optionalText(300),
+  metaDescription: z.string().trim().max(170, "Keep it under 170 characters; Google cuts off longer ones").default(""),
+  guide: optionalText(20000),
+});
 
 export type FormState = {
   ok: boolean;

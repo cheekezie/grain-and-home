@@ -1,5 +1,8 @@
 import BackLink from "@/components/admin/BackLink";
-import { adminOrder } from "@/lib/admin/queries";
+import { adminOrder, adminSuppliers } from "@/lib/admin/queries";
+import { CustomerUpdateForm } from "@/components/admin/MailControls";
+import { mailConfigured } from "@/lib/mail/config";
+import { orderingInbox } from "@/lib/mail/inboxSettings";
 import { ORDER_STATUS_LABELS } from "@/lib/catalogue";
 import { formatPrice, marginPercent } from "@/lib/money";
 import { checkDeliveryPostcode } from "@/lib/delivery";
@@ -8,7 +11,10 @@ import { CopyButton, ItemRefs, NoteForm, StatusActions } from "@/components/admi
 const fmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
 
 export default async function OrderPage({ params }: PageProps<"/admin/orders/[id]">) {
-  const o = await adminOrder((await params).id);
+  const [o, suppliers] = await Promise.all([adminOrder((await params).id), adminSuppliers()]);
+  const supplierById = new Map(suppliers.map((s) => [s.id, s]));
+  const mailReady = mailConfigured();
+  const inbox = await orderingInbox();
   const a = o.shippingAddress;
   const addressLines = [a?.name, a?.line1, a?.line2, a?.city, a?.postalCode].filter(Boolean) as string[];
   const addressText = [...addressLines, o.customerPhone].filter(Boolean).join("\n");
@@ -61,6 +67,18 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
                           </>
                         )}
                       </p>
+                      {(() => {
+                        const s = i.supplierId ? supplierById.get(i.supplierId) : undefined;
+                        if (!s) return null;
+                        return s.whiteLabel ? (
+                          <p className="mt-2 rounded-lg bg-plaster px-3 py-2 text-[13px]">White label: {s.name} delivers unbranded. Add the tracking link below and email the customer.</p>
+                        ) : (
+                          <p className="mt-2 rounded-lg bg-notice px-3 py-2 text-[13px]">
+                            Order on {s.name} with <span className="font-semibold">{inbox ?? "your ordering inbox (set it in Supplier emails)"}</span> as the contact email, never the customer&rsquo;s, and the customer&rsquo;s delivery address.
+                            Save their order number below so their emails can be matched to this order.
+                          </p>
+                        );
+                      })()}
                       {i.trackingUrl && (
                         <a href={i.trackingUrl} target="_blank" rel="noopener" className="mt-1 inline-block text-[14px] font-semibold text-moss underline">Track delivery</a>
                       )}
@@ -97,8 +115,20 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
           <section className="rounded-2xl border border-line bg-white p-5">
             <h2 className="text-lg font-semibold">Next step</h2>
             <div className="mt-3">
-              <StatusActions orderId={o.id} status={o.status} />
+              <StatusActions orderId={o.id} status={o.status} mailReady={mailReady} />
             </div>
+          </section>
+          <section className="rounded-2xl border border-line bg-white p-5">
+            <h2 className="text-lg font-semibold">Email the customer</h2>
+            <p className="mt-1 text-[13px] text-muted">Sent from your own address. Never names the supplier.</p>
+            <div className="mt-3">
+              <CustomerUpdateForm orderId={o.id} trackingUrl={o.items.find((i) => i.trackingUrl)?.trackingUrl} mailReady={mailReady} />
+            </div>
+            {o.emails.length > 0 && (
+              <ul className="mt-4 space-y-1 border-t border-line pt-3 text-[13px]">
+                {o.emails.map((m, n) => <li key={n}><span className="text-muted">{fmt.format(new Date(m.at))}:</span> {m.subject}</li>)}
+              </ul>
+            )}
           </section>
           <section className="rounded-2xl border border-line bg-white p-5 text-[15px]">
             <div className="flex items-center justify-between">

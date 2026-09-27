@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { addOrderNote, changeOrderStatus, saveOrderItemRefs } from "@/app/admin/actions";
 import { NEXT_STATUSES, ORDER_STATUS_LABELS, type OrderStatus } from "@/lib/catalogue";
+import { showToast } from "@/lib/toast";
 
 const ACTION_LABEL: Record<OrderStatus, string> = {
   paid: "Mark paid",
@@ -13,8 +14,9 @@ const ACTION_LABEL: Record<OrderStatus, string> = {
   refunded: "Mark as refunded",
 };
 
-export function StatusActions({ orderId, status }: { orderId: string; status: OrderStatus }) {
+export function StatusActions({ orderId, status, mailReady = false }: { orderId: string; status: OrderStatus; mailReady?: boolean }) {
   const [note, setNote] = useState("");
+  const [emailCustomer, setEmailCustomer] = useState(true);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const next = NEXT_STATUSES[status];
@@ -40,9 +42,13 @@ export function StatusActions({ orderId, status }: { orderId: string; status: Or
             onClick={() =>
               start(async () => {
                 setError(null);
-                const r = await changeOrderStatus(orderId, s, note);
+                const email = mailReady && emailCustomer && (s === "dispatched" || s === "delivered");
+                const r = await changeOrderStatus(orderId, s, note, email);
                 if (!r.ok) setError(r.message ?? "Couldn't update.");
-                else setNote("");
+                else {
+                  setNote("");
+                  if (r.message) showToast({ title: r.message });
+                }
               })
             }
             className={`rounded-full px-4 py-2 text-[15px] font-semibold disabled:opacity-60 ${
@@ -53,6 +59,12 @@ export function StatusActions({ orderId, status }: { orderId: string; status: Or
           </button>
         ))}
       </div>
+      {mailReady && (next.includes("dispatched") || next.includes("delivered")) && (
+        <label className="flex items-center gap-2 text-[14px]">
+          <input type="checkbox" checked={emailCustomer} onChange={(e) => setEmailCustomer(e.target.checked)} className="size-4 accent-moss" />
+          Email the customer when marking dispatched or delivered
+        </label>
+      )}
       {next.includes("refunded") && (
         <p className="text-[13px] text-muted">Refund the payment in Stripe first; this only records it here.</p>
       )}

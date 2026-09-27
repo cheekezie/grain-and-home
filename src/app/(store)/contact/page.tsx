@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import PolicyPage from "@/components/store/PolicyPage";
 import { siteConfig } from "@/lib/siteConfig";
 
-export const metadata: Metadata = { title: "Contact us" };
+export const metadata: Metadata = { title: "Contact us", alternates: { canonical: "/contact" } };
 
 export default function ContactPage() {
   const b = siteConfig.business;

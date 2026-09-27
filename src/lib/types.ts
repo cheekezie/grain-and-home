@@ -56,6 +56,9 @@ export interface Supplier {
   accountRef?: string;
   notes: string;
   returnInstructions: string;
+  whiteLabel: boolean;
+  senderDomains: string[];
+  autoCustomerUpdates: boolean;
   active: boolean;
 }
 
@@ -67,6 +70,7 @@ export interface OrderItem {
   image?: string;
   unitPrice: number;
   quantity: number;
+  supplierId?: string;
   supplierName?: string;
   supplierSku?: string;
   supplierUrl?: string;
@@ -95,6 +99,7 @@ export interface Order {
   discount: number;
   stripePaymentIntentId?: string;
   events: OrderEvent[];
+  emails: { at: string; kind: string; subject: string }[];
   createdAt: string;
   updatedAt: string;
 }

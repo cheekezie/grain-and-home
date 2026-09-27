@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import PolicyPage from "@/components/store/PolicyPage";
 import { siteConfig } from "@/lib/siteConfig";
 
-export const metadata: Metadata = { title: "Terms of sale" };
+export const metadata: Metadata = { title: "Terms of sale", alternates: { canonical: "/terms" } };
 
 export default function TermsPage() {
   const b = siteConfig.business;

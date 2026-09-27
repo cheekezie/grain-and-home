@@ -8,6 +8,7 @@ import SupplierModel from "@/models/Supplier";
 import { nextSequence } from "@/models/Counter";
 import PromoCodeModel from "@/models/PromoCode";
 import { fetchStripeFee } from "./stripeFees";
+import { confirmNewOrder } from "./mail/orderUpdates";
 
 /**
  * Turn a paid Checkout session into an Order. Idempotent: Stripe retries
@@ -40,7 +41,9 @@ export async function createOrderFromSession(session: Stripe.Checkout.Session): 
       image: (p?.images as { url: string }[] | undefined)?.[0]?.url,
       // What the customer actually paid per unit, from Stripe.
       unitPrice: Math.round((l.amount_total ?? 0) / quantity),
+      listUnitPrice: Math.round((l.amount_subtotal ?? l.amount_total ?? 0) / quantity),
       quantity,
+      supplier: p?.supplier ?? undefined,
       supplierName: p?.supplier ? supplierName.get(String(p.supplier)) : undefined,
       supplierSku: p?.supplierSku,
       supplierUrl: p?.supplierUrl,
@@ -89,5 +92,7 @@ export async function createOrderFromSession(session: Stripe.Checkout.Session): 
   }
   // Count the redemption only once the order exists (so retries don't double count).
   if (m.promoCode) await PromoCodeModel.updateOne({ code: m.promoCode }, { $inc: { usedCount: 1 } });
+  // Our own branded confirmation (Stripe's receipt covers the payment only).
+  await confirmNewOrder(session.id);
   return "created";
 }

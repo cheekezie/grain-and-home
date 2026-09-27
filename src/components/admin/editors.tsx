@@ -181,10 +181,26 @@ export interface SupplierValue {
   accountRef: string;
   notes: string;
   returnInstructions: string;
+  whiteLabel: boolean;
+  senderDomains: string;
+  autoCustomerUpdates: boolean;
   active: boolean;
 }
 
-export function SupplierEditor({ initial, action, justCreated, aside }: { initial: SupplierValue; action: Action; justCreated?: boolean; aside?: React.ReactNode }) {
+export function SupplierEditor({
+  initial,
+  action,
+  justCreated,
+  aside,
+  orderingInbox,
+}: {
+  initial: SupplierValue;
+  action: Action;
+  justCreated?: boolean;
+  aside?: React.ReactNode;
+  /** The ordering inbox (Supplier emails page), shown for reference. */
+  orderingInbox: string | null;
+}) {
   const [v, setV] = useState(initial);
   const set = <K extends keyof SupplierValue>(k: K, val: SupplierValue[K]) => setV((p) => ({ ...p, [k]: val }));
   return (
@@ -216,6 +232,40 @@ export function SupplierEditor({ initial, action, justCreated, aside }: { initia
           rows={6}
           hint="What a customer should do to send this supplier's items back: packing, collection or drop-off, the returns address. Shown on return requests for items from this supplier, ready to copy into your reply."
         />
+      </Section>
+
+      <Section title="Delivery emails" hint="Who tells the customer their order is on its way.">
+        <CheckboxField
+          label="White label"
+          checked={v.whiteLabel}
+          onChange={(n) => set("whiteLabel", n)}
+          hint="They deliver unbranded and never contact the customer (e.g. Artisan). You add tracking on the order and we email the customer."
+        />
+        {!v.whiteLabel && (
+          <>
+            <p className="rounded-lg bg-plaster px-3 py-2 text-[14px]">
+              {orderingInbox ? (
+                <>Order with <strong>{orderingInbox}</strong> as the contact email, so their emails come to you (never the customer). This is your ordering inbox, set once for all suppliers in Supplier emails.</>
+              ) : (
+                <>Set your ordering inbox in Supplier emails: the one address you give suppliers when ordering, which the shop reads.</>
+              )}
+            </p>
+            <TextField
+              label="Their email domains"
+              path="senderDomains"
+              value={v.senderDomains}
+              onChange={(n) => set("senderDomains", n)}
+              mono
+              hint="Where their order emails come from, e.g. wayfair.co.uk, wayfair.com. Only emails from these domains are read from your inbox."
+            />
+            <CheckboxField
+              label="Email customers automatically"
+              checked={v.autoCustomerUpdates}
+              onChange={(n) => set("autoCustomerUpdates", n)}
+              hint="When their email matches an order and says dispatched (with a carrier tracking link), out for delivery or delivered, email the customer straight away. Off: each one waits in Supplier emails for you to check."
+            />
+          </>
+        )}
         <CheckboxField label="Active" checked={v.active} onChange={(n) => set("active", n)} />
       </Section>
     </EditorForm>
@@ -358,4 +408,58 @@ export function PromoEditor({
 function PathError({ path }: { path: string }) {
   const error = useFieldError(path);
   return error ? <p className="mt-1 text-[14px] font-semibold text-danger">{error}</p> : null;
+}
+
+// ------------------------------------------------------------ room page
+
+export interface RoomValue {
+  intro: string;
+  metaDescription: string;
+  guide: string;
+}
+
+export function RoomEditor({ initial, action, roomName, defaultBlurb }: { initial: RoomValue; action: Action; roomName: string; defaultBlurb: string }) {
+  const [v, setV] = useState(initial);
+  const set = <K extends keyof RoomValue>(k: K, val: RoomValue[K]) => setV((p) => ({ ...p, [k]: val }));
+  const words = v.guide.trim() ? v.guide.trim().split(/\s+/).length : 0;
+  return (
+    <EditorForm action={action} payload={v}>
+      <Section title="Top of the page">
+        <TextField
+          label="Intro"
+          path="intro"
+          value={v.intro}
+          onChange={(n) => set("intro", n)}
+          multiline
+          rows={2}
+          hint={`One or two sentences under “${roomName}”. Empty uses: “${defaultBlurb}”`}
+        />
+      </Section>
+      <Section title="In Google" hint="What Google shows under the page title in search results.">
+        <TextField
+          label="Search description"
+          path="metaDescription"
+          value={v.metaDescription}
+          onChange={(n) => set("metaDescription", n)}
+          multiline
+          rows={2}
+          hint={`${v.metaDescription.length}/160 characters. Say what's here and why to click, e.g. “Solid mango wood bedside tables and chests, delivered free across mainland UK.”`}
+        />
+      </Section>
+      <Section
+        title="Buying guide"
+        hint="Shown below the products. Helpful, specific advice ranks: sizes, materials, what to measure. Write it yourself or from real product facts, never invented claims."
+      >
+        <TextField
+          label="Guide"
+          path="guide"
+          value={v.guide}
+          onChange={(n) => set("guide", n)}
+          multiline
+          rows={18}
+          hint={`${words} words. Blank line = new paragraph. Start a line with “## ” for a heading, “- ” for a bullet point. 300–800 words is a good length.`}
+        />
+      </Section>
+    </EditorForm>
+  );
 }

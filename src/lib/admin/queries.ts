@@ -10,6 +10,9 @@ import ReturnRequestModel from "@/models/ReturnRequest";
 import PromoCodeModel from "@/models/PromoCode";
 import SubscriberModel from "@/models/Subscriber";
 import StockAlertModel from "@/models/StockAlert";
+import SupplierEmailModel from "@/models/SupplierEmail";
+import MailSyncModel from "@/models/MailSync";
+import WebhookSecretModel from "@/models/WebhookSecret";
 import type { ReturnReason, ReturnStatus } from "@/lib/catalogue";
 import { toAdminProduct, toOrder, toSupplier } from "@/lib/serialize";
 
@@ -256,4 +259,97 @@ export async function marketingCounts() {
     adminStockAlerts().then((g) => g.filter((x) => x.availability === "in_stock" || x.availability === "low_stock").length),
   ]);
   return { waiting, backInStock };
+}
+
+// ------------------------------------------------------------ supplier emails
+
+export const SUPPLIER_EMAILS_PER_PAGE = 50;
+
+type SupplierEmailRow = Record<string, unknown> & { _id: unknown };
+
+async function supplierEmailViews(rows: SupplierEmailRow[], textLimit: number) {
+  const supplierNames = new Map((await SupplierModel.find().select("name").lean()).map((s) => [String(s._id), s.name as string]));
+  const orderNums = new Map(
+    (await OrderModel.find({ _id: { $in: rows.map((r) => r.order).filter(Boolean) } }).select("number").lean()).map((o) => [String(o._id), o]),
+  );
+  return rows.map((r) => ({
+    id: String(r._id),
+    from: r.from as string,
+    subject: r.subject as string,
+    receivedAt: r.receivedAt ? iso(r.receivedAt as Date) : undefined,
+    supplierName: r.supplier ? supplierNames.get(String(r.supplier)) : undefined,
+    text: ((r.text as string) ?? "").slice(0, textLimit),
+    detectedStatus: r.detectedStatus as string,
+    trackingUrls: (r.trackingUrls as string[]) ?? [],
+    supplierHostedTrackingUrls: (r.supplierHostedTrackingUrls as string[]) ?? [],
+    supplierOrderRef: (r.supplierOrderRef as string) || undefined,
+    orderId: r.order ? String(r.order) : undefined,
+    orderNumber: r.order ? (orderNums.get(String(r.order))?.number as number | undefined) : undefined,
+    state: r.state as string,
+    customerEmailedAt: r.customerEmailedAt ? iso(r.customerEmailedAt as Date) : undefined,
+  }));
+}
+
+/** One page of emails for the list: no body text (it's on the email's own page). */
+export async function adminSupplierEmails(state: string | undefined, page = 1) {
+  await requireAdmin();
+  await connectDB();
+  const filter = state ? { state } : {};
+  const total = await SupplierEmailModel.countDocuments(filter);
+  const pages = Math.max(1, Math.ceil(total / SUPPLIER_EMAILS_PER_PAGE));
+  const current = Math.min(Math.max(1, page), pages);
+  const rows = await SupplierEmailModel.find(filter)
+    .select("-text")
+    .sort({ receivedAt: -1, _id: -1 })
+    .skip((current - 1) * SUPPLIER_EMAILS_PER_PAGE)
+    .limit(SUPPLIER_EMAILS_PER_PAGE)
+    .lean();
+  return { items: await supplierEmailViews(rows as SupplierEmailRow[], 0), total, page: current };
+}
+
+export async function adminSupplierEmail(id: string) {
+  await requireAdmin();
+  await connectDB();
+  if (!isValidObjectId(id)) return null;
+  const row = await SupplierEmailModel.findById(id).lean();
+  if (!row) return null;
+  return (await supplierEmailViews([row as SupplierEmailRow], 20000))[0];
+}
+
+export async function supplierEmailCounts() {
+  await requireAdmin();
+  await connectDB();
+  const rows = await SupplierEmailModel.aggregate<{ _id: string; n: number }>([{ $group: { _id: "$state", n: { $sum: 1 } } }]);
+  return Object.fromEntries(rows.map((r) => [r._id, r.n])) as Record<string, number>;
+}
+
+export async function mailSyncState() {
+  await requireAdmin();
+  await connectDB();
+  const s = (await MailSyncModel.findById("INBOX").lean()) as { lastRunAt?: Date; lastError?: string } | null;
+  return { lastRunAt: s?.lastRunAt ? iso(s.lastRunAt) : undefined, lastError: s?.lastError };
+}
+
+/** Open orders, for matching an email to an order by hand. */
+export async function openOrdersForMatching() {
+  await requireAdmin();
+  await connectDB();
+  const rows = await OrderModel.find({ status: { $in: ["paid", "ordered", "dispatched"] } }).sort({ createdAt: -1 }).limit(100).select("number customerName customerEmail items").lean();
+  return rows.map((o) => ({
+    id: String(o._id),
+    label: `#${o.number} · ${(o.customerName as string) || (o.customerEmail as string)}`,
+    items: ((o.items ?? []) as { _id: unknown; name: string; supplierName?: string }[]).map((i) => ({ id: String(i._id), label: `${i.name}${i.supplierName ? ` (${i.supplierName})` : ""}` })),
+  }));
+}
+
+export async function zohoWebhookState() {
+  await requireAdmin();
+  await connectDB();
+  const w = (await WebhookSecretModel.findById("zoho-mail").lean()) as { secret?: string; connectedAt?: Date; lastCallAt?: Date; lastResult?: string } | null;
+  return {
+    connected: !!(w?.secret || process.env.ZOHO_MAIL_WEBHOOK_SECRET),
+    connectedAt: w?.connectedAt ? iso(w.connectedAt) : undefined,
+    lastCallAt: w?.lastCallAt ? iso(w.lastCallAt) : undefined,
+    lastResult: w?.lastResult,
+  };
 }

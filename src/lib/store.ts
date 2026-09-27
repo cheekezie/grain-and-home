@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { connectDB } from "./db";
 import ProductModel from "@/models/Product";
+import RoomContentModel from "@/models/RoomContent";
 import { toStoreProduct } from "./serialize";
 
 // Storefront reads: published products only, supplier fields stripped.
@@ -35,6 +36,33 @@ export const getProduct = cache(async (slug: string) => {
 
 export const getAllListedSlugs = cache(async () => {
   await connectDB();
-  const docs = await ProductModel.find(LISTED).select("slug category updatedAt").lean();
-  return docs.map((d) => ({ slug: d.slug as string, category: d.category as string, updatedAt: (d.updatedAt as Date | undefined)?.toISOString() }));
+  const docs = await ProductModel.find(LISTED).select("slug category updatedAt images").lean();
+  return docs.map((d) => ({
+    slug: d.slug as string,
+    category: d.category as string,
+    updatedAt: (d.updatedAt as Date | undefined)?.toISOString(),
+    images: ((d.images ?? []) as { url: string }[]).map((i) => i.url).slice(0, 5),
+  }));
+});
+
+export const getRoomContent = cache(async (slug: string) => {
+  await connectDB();
+  const doc = await RoomContentModel.findOne({ slug }).lean();
+  return { intro: (doc?.intro as string) ?? "", metaDescription: (doc?.metaDescription as string) ?? "", guide: (doc?.guide as string) ?? "" };
+});
+
+/** "You might also like": other pieces from the same room, then elsewhere. */
+export const getRelated = cache(async (productId: string, category: string, limit = 4) => {
+  await connectDB();
+  const same = await ProductModel.find({ ...LISTED, category, _id: { $ne: productId }, availability: { $nin: ["out_of_stock", "discontinued"] } })
+    .sort({ featured: -1, sortOrder: 1 })
+    .limit(limit)
+    .lean();
+  const more = same.length < limit
+    ? await ProductModel.find({ ...LISTED, category: { $ne: category }, _id: { $ne: productId }, availability: { $nin: ["out_of_stock", "discontinued"] } })
+        .sort({ featured: -1, updatedAt: -1 })
+        .limit(limit - same.length)
+        .lean()
+    : [];
+  return [...same, ...more].map(toStoreProduct);
 });

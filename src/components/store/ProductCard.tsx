@@ -4,6 +4,7 @@ import { formatPrice } from "@/lib/money";
 import { AVAILABILITY_LABELS } from "@/lib/catalogue";
 import SaveButton from "./SaveButton";
 import QuickAdd from "./QuickAdd";
+import ShopImage from "@/components/store/ShopImage";
 
 // The photo and the name/price are separate links to the same page (the
 // photo one is skipped by keyboard and screen readers), so the Save and
@@ -17,12 +18,12 @@ export default function ProductCard({ product: p, eager = false }: { product: St
       <div className="relative">
         <Link href={href} tabIndex={-1} aria-hidden className="relative block aspect-[4/5] overflow-hidden rounded-xl bg-plaster">
           {img ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <ShopImage
               src={img.url}
               alt=""
-              loading={eager ? "eager" : "lazy"}
-              className="absolute inset-0 h-full w-full object-contain p-6 mix-blend-multiply transition-transform duration-500 group-hover:scale-[1.03]"
+              sizes="(min-width: 768px) 25vw, 50vw"
+              eager={eager}
+              className="object-contain p-6 mix-blend-multiply transition-transform duration-500 group-hover:scale-[1.03]"
             />
           ) : (
             <span className="absolute inset-0 flex items-center justify-center text-[13px] text-muted">Photo coming soon</span>

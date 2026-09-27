@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCart } from "@/lib/CartContext";
 import { formatPrice } from "@/lib/money";
 import QuantityStepper from "./QuantityStepper";
+import ShopImage from "@/components/store/ShopImage";
 
 export default function BasketView({ paymentMethods }: { paymentMethods?: React.ReactNode }) {
   const { items, setQuantity, removeItem, subtotal } = useCart();
@@ -23,8 +24,7 @@ export default function BasketView({ paymentMethods }: { paymentMethods?: React.
           <li key={i.productId} className="flex gap-4 py-5">
             <Link href={`/products/${i.slug}`} className="relative block h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-plaster">
               {i.image && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={i.image} alt="" className="absolute inset-0 h-full w-full object-contain p-2 mix-blend-multiply" />
+                <ShopImage src={i.image} alt="" sizes="96px" className="object-contain p-2 mix-blend-multiply" />
               )}
             </Link>
             <div className="min-w-0 flex-1">

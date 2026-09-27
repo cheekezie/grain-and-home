@@ -16,14 +16,22 @@ import {
   startSession,
 } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
-import { AVAILABILITY, NEXT_STATUSES, ORDER_STATUSES, RETURN_STATUSES, RETURN_STATUS_LABELS, type OrderStatus, type ReturnStatus } from "@/lib/catalogue";
-import { productSchema, promoSchema, supplierSchema, toFormState, type FormState } from "@/lib/admin/schemas";
+import { AVAILABILITY, CATEGORY_SLUGS, NEXT_STATUSES, ORDER_STATUSES, RETURN_STATUSES, RETURN_STATUS_LABELS, type OrderStatus, type ReturnStatus } from "@/lib/catalogue";
+import { productSchema, promoSchema, roomSchema, supplierSchema, toFormState, type FormState } from "@/lib/admin/schemas";
 import ProductModel from "@/models/Product";
 import SupplierModel from "@/models/Supplier";
 import OrderModel from "@/models/Order";
 import ReturnRequestModel from "@/models/ReturnRequest";
 import PromoCodeModel from "@/models/PromoCode";
+import RoomContentModel from "@/models/RoomContent";
 import StockAlertModel from "@/models/StockAlert";
+import SupplierEmailModel from "@/models/SupplierEmail";
+import { syncInbox } from "@/lib/mail/inbox";
+import { INBOX_PROVIDERS, getInboxConfig, testImapLogin } from "@/lib/mail/inboxSettings";
+import MailboxSettingsModel from "@/models/MailboxSettings";
+import { encryptSecret } from "@/lib/secretBox";
+import { applySupplierEmail, sendOrderConfirmation, sendOrderUpdate } from "@/lib/mail/orderUpdates";
+import type { CustomerUpdateKind } from "@/lib/mail/templates";
 
 // ------------------------------------------------------------ session
 
@@ -176,7 +184,7 @@ export async function deleteSupplier(id: string): Promise<void> {
 const statusSchema = z.enum(ORDER_STATUSES);
 
 /** Move an order along the workflow, with an optional note for the timeline. */
-export async function changeOrderStatus(id: string, next: OrderStatus, note: string): Promise<{ ok: boolean; message?: string }> {
+export async function changeOrderStatus(id: string, next: OrderStatus, note: string, emailCustomer = false): Promise<{ ok: boolean; message?: string }> {
   await requireAdmin();
   assertId(id);
   const status = statusSchema.parse(next);
@@ -189,9 +197,20 @@ export async function changeOrderStatus(id: string, next: OrderStatus, note: str
     { _id: id, status: current },
     { $set: { status }, $push: { events: { at: new Date(), status, note: note.trim().slice(0, 1000) } } },
   );
+  let message: string | undefined;
+  if (emailCustomer && (status === "dispatched" || status === "delivered")) {
+    const o = await OrderModel.findById(id).select("items").lean();
+    const tracking = ((o?.items ?? []) as { trackingUrl?: string }[]).find((i) => i.trackingUrl)?.trackingUrl;
+    try {
+      await sendOrderUpdate(id, status, tracking);
+      message = "Status updated and the customer has been emailed.";
+    } catch (e) {
+      message = `Status updated, but the email wasn't sent: ${(e as Error).message}`;
+    }
+  }
   revalidatePath(`/admin/orders/${id}`);
   revalidatePath("/admin", "layout");
-  return { ok: true };
+  return { ok: true, message };
 }
 
 export async function addOrderNote(id: string, note: string): Promise<void> {
@@ -296,4 +315,130 @@ export async function markStockAlertsNotified(productId: string): Promise<void> 
   await connectDB();
   await StockAlertModel.updateMany({ product: productId, notifiedAt: null }, { $set: { notifiedAt: new Date() } });
   revalidatePath("/admin/alerts");
+}
+
+// ------------------------------------------------------------ room pages
+
+export async function saveRoom(slug: string, _prev: FormState, form: FormData): Promise<FormState> {
+  await requireAdmin();
+  if (!(CATEGORY_SLUGS as readonly string[]).includes(slug)) throw new Error("Unknown room");
+  const parsed = roomSchema.safeParse(readPayload(form));
+  if (!parsed.success) return toFormState(parsed.error);
+  await connectDB();
+  await RoomContentModel.updateOne({ slug }, { $set: { slug, ...parsed.data } }, { upsert: true });
+  refreshStore();
+  return { ok: true, message: "Saved" };
+}
+
+// ------------------------------------------------------------ supplier emails
+
+export async function checkInboxNow(): Promise<{ ok: boolean; message: string }> {
+  await requireAdmin();
+  const r = await syncInbox();
+  revalidatePath("/admin", "layout");
+  return { ok: r.ok, message: r.message };
+}
+
+export async function applyEmail(id: string, emailCustomer: boolean, orderId?: string, itemId?: string): Promise<{ ok: boolean; message: string }> {
+  await requireAdmin();
+  assertId(id);
+  if (orderId) assertId(orderId);
+  if (itemId) assertId(itemId);
+  try {
+    const r = await applySupplierEmail(id, { emailCustomer, orderId, itemId });
+    revalidatePath("/admin", "layout");
+    return { ok: true, message: r.emailed ? "Order updated and the customer emailed" : "Order updated" };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message };
+  }
+}
+
+export async function ignoreEmail(id: string): Promise<void> {
+  await requireAdmin();
+  assertId(id);
+  await connectDB();
+  await SupplierEmailModel.updateOne({ _id: id }, { $set: { state: "ignored" } });
+  revalidatePath("/admin", "layout");
+}
+
+const UPDATE_KINDS = ["ordered", "dispatched", "out_for_delivery", "delivered"] as const;
+
+export async function emailCustomerUpdate(orderId: string, kind: CustomerUpdateKind | "confirmation", trackingUrl: string): Promise<{ ok: boolean; message: string }> {
+  await requireAdmin();
+  assertId(orderId);
+  if (kind === "confirmation") {
+    try {
+      const subject = await sendOrderConfirmation(orderId);
+      revalidatePath(`/admin/orders/${orderId}`);
+      return { ok: true, message: `Sent: “${subject}”` };
+    } catch (e) {
+      return { ok: false, message: (e as Error).message };
+    }
+  }
+  if (!(UPDATE_KINDS as readonly string[]).includes(kind)) return { ok: false, message: "Choose what to tell the customer." };
+  const url = trackingUrl.trim();
+  if (url && !/^https:\/\/[^\s]+$/i.test(url)) return { ok: false, message: "The tracking link must start with https://" };
+  try {
+    const subject = await sendOrderUpdate(orderId, kind, url || undefined);
+    revalidatePath(`/admin/orders/${orderId}`);
+    return { ok: true, message: `Sent: “${subject}”` };
+  } catch (e) {
+    return { ok: false, message: (e as Error).message };
+  }
+}
+
+// ------------------------------------------------------------ ordering inbox
+
+const inboxSchema = z.object({
+  address: z.email("Enter a valid email address").trim().toLowerCase(),
+  /** Empty = keep the saved password. */
+  password: z.string().max(200).default(""),
+  provider: z.enum(Object.keys(INBOX_PROVIDERS) as [string, ...string[]]),
+  imapHost: z.string().trim().max(200).default(""),
+  imapPort: z.coerce.number().int().min(1).max(65535).default(993),
+});
+
+/** Save the ordering inbox (password encrypted), then test the login. */
+export async function saveInboxSettings(input: unknown): Promise<{ ok: boolean; message: string }> {
+  await requireAdmin();
+  const parsed = inboxSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the form." };
+  const d = parsed.data;
+  if (d.provider === "other" && !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(d.imapHost)) return { ok: false, message: "Enter the IMAP server, e.g. imap.example.com" };
+  await connectDB();
+  const existing = await MailboxSettingsModel.findById("ordering-inbox").select("passwordEnc").lean();
+  const password = d.password.replace(/\s+/g, "");
+  if (!password && !existing?.passwordEnc) return { ok: false, message: "Enter the app password." };
+  let passwordEnc: string | undefined;
+  try {
+    passwordEnc = password ? encryptSecret(password) : undefined;
+  } catch (e) {
+    return { ok: false, message: (e as Error).message };
+  }
+  await MailboxSettingsModel.updateOne(
+    { _id: "ordering-inbox" },
+    { $set: { address: d.address, provider: d.provider, imapHost: d.provider === "other" ? d.imapHost : undefined, imapPort: d.imapPort, ...(passwordEnc && { passwordEnc }) } },
+    { upsert: true },
+  );
+  const result = await runInboxTest();
+  revalidatePath("/admin", "layout");
+  return { ok: result.ok, message: result.ok ? `Saved. ${result.message}` : `Saved, but the connection failed: ${result.message}` };
+}
+
+async function runInboxTest() {
+  const cfg = await getInboxConfig();
+  const result = cfg ? await testImapLogin(cfg) : { ok: false, message: "Email and password needed." };
+  await MailboxSettingsModel.updateOne(
+    { _id: "ordering-inbox" },
+    { $set: { lastTestAt: new Date(), lastTestOk: result.ok, lastTestMessage: result.message } },
+  );
+  return result;
+}
+
+export async function testInboxSettings(): Promise<{ ok: boolean; message: string }> {
+  await requireAdmin();
+  await connectDB();
+  const r = await runInboxTest();
+  revalidatePath("/admin/supplier-emails");
+  return r;
 }

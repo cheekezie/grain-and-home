@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ProductImage } from "@/lib/types";
+import ShopImage from "@/components/store/ShopImage";
 
 const HOVER_ZOOM = 2;
 const VIEWER_ZOOM = 2.5;
@@ -38,12 +39,12 @@ export default function ProductGallery({ images, name }: { images: ProductImage[
         aria-label={`Zoom in: open photo ${index + 1} of ${images.length} full screen`}
         className="group relative block aspect-square w-full cursor-zoom-in overflow-hidden rounded-2xl bg-plaster"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <ShopImage
           src={current.url}
           alt={current.alt || name}
-          loading="eager"
-          className="absolute inset-0 h-full w-full object-contain p-8 mix-blend-multiply transition-transform duration-150 ease-out motion-reduce:transition-none"
+          sizes="(min-width: 1024px) 55vw, 100vw"
+          eager
+          className="object-contain p-8 mix-blend-multiply transition-transform duration-150 ease-out motion-reduce:transition-none"
           style={hover ? { transform: `scale(${HOVER_ZOOM})`, transformOrigin: `${hover.x}% ${hover.y}%` } : undefined}
         />
         <span className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-[13px] font-semibold shadow-sm transition-opacity group-hover:opacity-0">
@@ -80,8 +81,7 @@ function Thumbnails({ images, index, onPick, dark }: { images: ProductImage[]; i
             aria-current={n === index}
             className={`relative block aspect-square overflow-hidden rounded-lg bg-plaster ring-2 ${dark ? "w-14" : "w-full"} ${n === index ? "ring-ink" : "ring-transparent hover:ring-line"}`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={img.url} alt="" className="absolute inset-0 h-full w-full object-contain p-1.5 mix-blend-multiply" />
+            <ShopImage src={img.url} alt="" sizes="128px" className="object-contain p-1.5 mix-blend-multiply" />
           </button>
         </li>
       ))}
@@ -167,12 +167,13 @@ function Viewer({ images, name, index, onIndex, onClose }: { images: ProductImag
           }}
           onPointerCancel={() => { drag.current = null; }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <ShopImage
             src={current.url}
             alt={current.alt || name}
+            sizes="100vw"
+            eager
             draggable={false}
-            className="h-full w-full object-contain p-4 transition-transform duration-200 ease-out motion-reduce:transition-none sm:p-10"
+            className="object-contain p-4 transition-transform duration-200 ease-out motion-reduce:transition-none sm:p-10"
             style={zoom ? { transform: `scale(${VIEWER_ZOOM})`, transformOrigin: `${zoom.x}% ${zoom.y}%` } : undefined}
           />
         </div>

@@ -20,6 +20,17 @@ const supplierSchema = new Schema(
      * a return request; never shown on the storefront as-is.
      */
     returnInstructions: { type: String, default: "" },
+    /**
+     * White label: the supplier delivers unbranded and never contacts the
+     * customer (e.g. Artisan). Otherwise (e.g. Wayfair) we order on the
+     * customer's behalf with our own email, and the supplier's emails come
+     * to our inbox for us to pass on.
+     */
+    whiteLabel: { type: Boolean, default: false },
+    /** Domains their order emails come from, e.g. wayfair.co.uk. Used to pick their emails out of the inbox. */
+    senderDomains: { type: [String], default: [] },
+    /** Email the customer automatically when one of their emails is matched to an order (otherwise: review first). */
+    autoCustomerUpdates: { type: Boolean, default: false },
     active: { type: Boolean, default: true },
   },
   { timestamps: true },
