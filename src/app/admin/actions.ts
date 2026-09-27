@@ -10,7 +10,7 @@ import {
   clearLoginFailures,
   endSession,
   loginBlocked,
-  passwordMatches,
+  accessCodeMatches,
   recordLoginFailure,
   requireAdmin,
   startSession,
@@ -29,12 +29,14 @@ import StockAlertModel from "@/models/StockAlert";
 
 export async function login(_prev: FormState, form: FormData): Promise<FormState> {
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  if (loginBlocked(ip)) return { ok: false, message: "Too many wrong passwords. Wait 15 minutes and try again." };
-  if (!passwordMatches(String(form.get("password") ?? ""))) {
-    recordLoginFailure(ip);
-    return { ok: false, message: "That password isn't right." };
+  const blocked = await loginBlocked(ip);
+  if (blocked) return { ok: false, message: blocked };
+  const code = String(form.get("code") ?? "");
+  if (!/^\d{6}$/.test(code.replace(/\s/g, "")) || !accessCodeMatches(code)) {
+    await recordLoginFailure(ip);
+    return { ok: false, message: "That code isn't right." };
   }
-  clearLoginFailures(ip);
+  await clearLoginFailures(ip);
   await startSession();
   redirect("/admin");
 }

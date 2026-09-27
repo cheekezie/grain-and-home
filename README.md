@@ -12,7 +12,7 @@ Stack: Next.js 16, MongoDB (Mongoose), Stripe Checkout, Tailwind.
 1. `npm install`
 2. Start MongoDB locally (`mongod`), or point `MONGODB_URI` at Atlas.
 3. Copy `.env.example` to `.env.local` and fill it in (see Stripe below).
-4. `npm run dev`, then open `/admin/login` and sign in with `ADMIN_PASSWORD`.
+4. `npm run dev`, then open `/admin/login` and sign in with the 6-digit `ADMIN_ACCESS_CODE`.
 
 ## Stripe setup (including Klarna)
 

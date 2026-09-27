@@ -19,7 +19,7 @@ earlier state: ../dropship-store-backup-2026-09-26.tgz). See README.md.
 - Honesty rules: no invented products, reviews, discounts or "was" prices;
   payment-method labels come from Stripe's live config, not a hard-coded list;
   no imitation brand logos.
-- Admin auth: single `ADMIN_PASSWORD` + HMAC cookie (`store_admin`).
+- Admin auth: 6-digit `ADMIN_ACCESS_CODE` (owner's choice, 2026-09-27) + HMAC cookie (`store_admin`, 7 days). Brute-force limits in MongoDB `auththrottles`: 5 wrong per connection → 15 min lock; 30 wrong site-wide per hour → sign-in paused 1 hour. To unlock early: `db.auththrottles.deleteMany({})`.
 - Suppliers can be trade dropshippers or retailers ordered from on the
   customer's behalf (owner's decision, 2026-09-26: Artisan, Wayfair, Amazon,
   or anywhere). Products are drafts until price + supplier cost are known.
