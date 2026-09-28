@@ -6,7 +6,7 @@ import JsonLd from "@/components/JsonLd";
 import RichText from "@/components/store/RichText";
 import { breadcrumbJsonLd, shareMeta } from "@/lib/seo";
 import { getCategory, getShopSettings } from "@/lib/shop/server";
-import { deliveryAreaText } from "@/lib/shop/types";
+import { deliveryAreaName } from "@/lib/shop/types";
 import { shareImage } from "@/lib/shop/images";
 import CategoryGrid, { type Facet, type GridItem } from "@/components/store/CategoryGrid";
 import { PURCHASABLE } from "@/lib/catalogue";
@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: PageProps<"/shop/[category]">
   const [cat, shop] = await Promise.all([getCategory((await params).category), getShopSettings()]);
   if (!cat) return {};
   const title = cat.pageTitle || cat.name;
-  const description = cat.metaDescription || cat.intro || `${cat.blurb} Delivered free across ${deliveryAreaText(shop.delivery.area)}.`;
+  const description = cat.metaDescription || cat.intro || `${cat.blurb} Delivered free across ${deliveryAreaName(shop.delivery.area)}.`;
   return { title, description, ...shareMeta({ title, description, path: `/shop/${cat.slug}`, image: shareImage(cat.image?.url ?? shop.hero.image?.url) }) };
 }
 

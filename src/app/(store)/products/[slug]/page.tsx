@@ -8,7 +8,7 @@ import PaymentMethods from "@/components/store/PaymentMethods";
 import { AVAILABILITY_LABELS, DELIVERY_LABELS, PURCHASABLE } from "@/lib/catalogue";
 import { getCategoryNames, getShopSettings } from "@/lib/shop/server";
 import { detailRows } from "@/lib/shop/details";
-import { deliveryAreaText } from "@/lib/shop/types";
+import { deliveryAreaName } from "@/lib/shop/types";
 import { priceRange } from "@/lib/variants";
 import { formatPrice } from "@/lib/money";
 import { getPackPieces, getProduct, getRelated } from "@/lib/store";
@@ -27,7 +27,7 @@ export const revalidate = 300;
 export async function generateMetadata({ params }: PageProps<"/products/[slug]">): Promise<Metadata> {
   const [p, shop] = await Promise.all([getProduct((await params).slug), getShopSettings()]);
   if (!p) return {};
-  const description = `${p.summary} ${formatPrice(p.price)}, free delivery to ${deliveryAreaText(shop.delivery.area)}.`;
+  const description = `${p.summary} ${formatPrice(p.price)}, free delivery to ${deliveryAreaName(shop.delivery.area)}.`;
   return { title: p.name, description, ...shareMeta({ title: p.name, description, path: `/products/${p.slug}`, image: p.images[0]?.url }) };
 }
 
@@ -42,7 +42,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
   const purchasable = inStock(p) && pieces.every(inStock);
   const range = priceRange(p);
   const [promo, related, shop, categoryName] = await Promise.all([getAnnouncedPromo(), getRelated(p.id, p.category), getShopSettings(), getCategoryNames()]);
-  const area = deliveryAreaText(shop.delivery.area);
+  const area = deliveryAreaName(shop.delivery.area);
   const catName = categoryName(p.category);
   const promoApplies =
     promo && (promo.scope === "all" || (promo.scope === "products" ? promo.productIds.includes(p.id) : promo.categories.includes(p.category)));
