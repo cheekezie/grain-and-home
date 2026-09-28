@@ -11,7 +11,8 @@ import { detailRows } from "@/lib/shop/details";
 import { deliveryAreaName } from "@/lib/shop/types";
 import { priceRange } from "@/lib/variants";
 import { formatPrice } from "@/lib/money";
-import { getPackPieces, getProduct, getRelated } from "@/lib/store";
+import { getPackPieces, getPacksContaining, getProduct, getRelated } from "@/lib/store";
+import PackSuggestions from "@/components/store/PackSuggestions";
 import JsonLd from "@/components/JsonLd";
 import ProductCard from "@/components/store/ProductCard";
 import { breadcrumbJsonLd, productJsonLd, shareMeta } from "@/lib/seo";
@@ -38,7 +39,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
   // a pack, if every piece can be.
   const inStock = (x: { availability: (typeof PURCHASABLE)[number] | string; variants: { availability: string }[] }) =>
     (PURCHASABLE as readonly string[]).includes(x.availability) && (!x.variants.length || x.variants.some((v) => (PURCHASABLE as readonly string[]).includes(v.availability)));
-  const pieces = await getPackPieces(p.packSlots);
+  const [pieces, packs] = await Promise.all([getPackPieces(p.packSlots), p.packSlots.length ? Promise.resolve([]) : getPacksContaining(p.id)]);
   // A pack piece counts as in stock if some in-stock combination keeps the options we fixed for it.
   const pieceInStock = (x: (typeof pieces)[number], i: number) => {
     const preset = p.packPresets[i] ?? {};
@@ -166,6 +167,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
           </div>
         ))}
       </section>
+      <PackSuggestions packs={packs} />
       {related.length > 0 && (
         <section className="mt-16">
           <h2 className="font-display text-3xl">You might also like</h2>

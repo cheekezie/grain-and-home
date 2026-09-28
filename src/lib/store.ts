@@ -68,3 +68,40 @@ export const getPackPieces = cache(async (slots: string[]) => {
   const byId = new Map(docs.map((d) => [String(d._id), toStoreProduct(d)]));
   return slots.map((id) => byId.get(id)).filter((p): p is NonNullable<typeof p> => !!p);
 });
+
+/**
+ * Live packs that contain this product, for "Save with a pack" on its page.
+ * `saving` is the least the customer saves against buying the pieces
+ * separately: each piece at its cheapest in-stock choice within the pack's
+ * fixed options, so the figure is always true.
+ */
+export const getPacksContaining = cache(async (productId: string) => {
+  await connectDB();
+  const packs = await ProductModel.find({ ...LISTED, packSlots: productId }).sort({ featured: -1, sortOrder: 1 }).limit(4).lean();
+  if (!packs.length) return [];
+  const ids = [...new Set(packs.flatMap((p) => ((p.packSlots ?? []) as unknown[]).map(String)))];
+  const pieces = new Map((await ProductModel.find({ _id: { $in: ids } }).lean()).map((d) => [String(d._id), toStoreProduct(d)]));
+  const buyable = (a: string) => a === "in_stock" || a === "low_stock";
+  return packs.map((doc) => {
+    const pack = toStoreProduct(doc);
+    let separate = 0;
+    let known = true;
+    const counts = new Map<string, number>();
+    pack.packSlots.forEach((slot, i) => {
+      const piece = pieces.get(slot);
+      if (!piece) return void (known = false);
+      counts.set(piece.name, (counts.get(piece.name) ?? 0) + 1);
+      const preset = pack.packPresets[i] ?? {};
+      const prices = piece.variants.length
+        ? piece.variants.filter((v) => buyable(v.availability) && piece.options.every((o, k) => !preset[o.name] || v.values[k] === preset[o.name])).map((v) => v.price)
+        : [piece.price];
+      if (!prices.length || prices.some((x) => typeof x !== "number")) known = false;
+      else separate += Math.min(...prices);
+    });
+    return {
+      product: pack,
+      contents: [...counts].map(([name, n]) => (n > 1 ? `${n} × ${name}` : name)),
+      saving: known && separate > pack.price ? separate - pack.price : 0,
+    };
+  });
+});
