@@ -49,7 +49,13 @@ function MiniCard({ p }: { p: StoreProduct }) {
       <Link href={`/products/${p.slug}`} className="group block">
         <span className="relative block aspect-[4/5] overflow-hidden rounded-xl bg-plaster">
           {img && (
-            <ShopImage src={img.url} alt={img.alt || p.name} sizes="(min-width: 768px) 25vw, 50vw" className="object-contain p-5 mix-blend-multiply" />
+            <ShopImage
+              src={img.url}
+              alt={img.alt || p.name}
+              sizes="(min-width: 768px) 25vw, 50vw"
+              // Cut-outs sit whole on the panel; photos with their own background fill the card.
+              className={img.cutout === false ? "object-cover mix-blend-multiply" : "object-contain p-5 mix-blend-multiply"}
+            />
           )}
           {p.availability === "out_of_stock" && (
             <span className="absolute left-2 top-2 rounded-full bg-white px-2.5 py-0.5 text-[12px] font-medium">

@@ -41,7 +41,9 @@ export default async function ProductCard({ product: p, eager = false, index = 0
               sizes="(min-width: 768px) 25vw, 50vw"
               eager={eager}
               className={
-                cards === "panel"
+                // Panel style: cut-outs sit whole on the panel; photos with their
+                // own background fill the card. Unknown photos stay whole.
+                cards === "panel" && img.cutout !== false
                   ? "object-contain p-6 mix-blend-multiply transition-transform duration-500 group-hover:scale-[1.03]"
                   : "object-cover mix-blend-multiply transition-transform duration-500 group-hover:scale-[1.03]"
               }

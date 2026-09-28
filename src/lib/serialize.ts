@@ -16,7 +16,7 @@ export function toStoreProduct(p: Lean): T.StoreProduct {
     category: p.category,
     summary: p.summary,
     description: p.description,
-    images: (p.images ?? []).map((i: Lean) => ({ url: i.url, alt: i.alt ?? "" })),
+    images: (p.images ?? []).map((i: Lean) => ({ url: i.url, alt: i.alt ?? "", ...(typeof i.cutout === "boolean" && { cutout: i.cutout }) })),
     price: p.price,
     details: p.details && typeof p.details === "object" ? { ...p.details } : {},
     deliveryType: p.deliveryType ?? "courier",

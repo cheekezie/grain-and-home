@@ -2,7 +2,15 @@ import { Schema, type InferSchemaType } from "mongoose";
 import { defineModel } from "./define";
 import { AVAILABILITY, DELIVERY_TYPES } from "@/lib/catalogue";
 
-const imageSchema = new Schema({ url: { type: String, required: true, trim: true }, alt: { type: String, default: "", trim: true } }, { _id: false });
+const imageSchema = new Schema(
+  {
+    url: { type: String, required: true, trim: true },
+    alt: { type: String, default: "", trim: true },
+    /** Plain white or transparent background (set automatically on save, lib/imageCutout.ts). */
+    cutout: Boolean,
+  },
+  { _id: false },
+);
 
 // A product we sell but don't stock: bought from `supplier` when a customer
 // orders. Prices are in pence. `supplierCost`, `supplierSku` and

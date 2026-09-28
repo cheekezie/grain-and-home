@@ -14,7 +14,9 @@ export default function PackSuggestions({ packs }: { packs: { product: StoreProd
           <li key={p.id}>
             <Link href={`/products/${p.slug}`} className="group flex gap-4 rounded-2xl border border-line bg-page p-3 hover:border-ink">
               <span className="relative block size-28 shrink-0 overflow-hidden rounded-xl bg-plaster sm:size-32">
-                {p.images[0] && <ShopImage src={p.images[0].url} alt="" sizes="128px" className="object-contain p-2 mix-blend-multiply" />}
+                {p.images[0] && (
+                  <ShopImage src={p.images[0].url} alt="" sizes="128px" className={p.images[0].cutout === false ? "object-cover mix-blend-multiply" : "object-contain p-2 mix-blend-multiply"} />
+                )}
               </span>
               <span className="flex min-w-0 flex-col justify-center py-1">
                 <span className="font-semibold group-hover:text-moss">{p.name}</span>

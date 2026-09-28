@@ -20,6 +20,7 @@ import { AVAILABILITY, NEXT_STATUSES, ORDER_STATUSES, RETURN_STATUSES, RETURN_ST
 import { productSchema, promoSchema, supplierSchema, toFormState, type FormState } from "@/lib/admin/schemas";
 import { categorySchema, detailFieldsSchema, generalSettingsSchema, navSchema } from "@/lib/admin/shopSchemas";
 import { parseDetails } from "@/lib/shop/details";
+import { withCutoutFlags } from "@/lib/imageCutout";
 import { PRESETS } from "@/lib/shop/presets";
 import { STORE_PAGES } from "@/lib/shop/pages";
 import { getShopSettings } from "@/lib/shop/server";
@@ -123,7 +124,10 @@ export async function saveProduct(id: string | null, _prev: FormState, form: For
   }
 
   // Availability changed in the editor counts as a stock check.
-  const before = id ? await ProductModel.findById(id).select("availability").lean() : null;
+  const before = id ? await ProductModel.findById(id).select("availability images").lean() : null;
+  // Which photos are cut-outs (checked once per photo; see lib/imageCutout.ts).
+  const known = new Map(((before?.images ?? []) as { url: string; cutout?: boolean }[]).map((i) => [i.url, i.cutout]));
+  data.images = await withCutoutFlags(data.images, known);
   const checkedNow = !before || before.availability !== data.availability;
 
   if (!data.packSlots.length) data.packPresets = [];

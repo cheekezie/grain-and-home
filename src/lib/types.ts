@@ -7,6 +7,8 @@ export type Status = "draft" | "published";
 export interface ProductImage {
   url: string;
   alt: string;
+  /** true: plain white/transparent background; false: the photo has its own background; missing: not known. */
+  cutout?: boolean;
 }
 
 /** What the storefront may see. No supplier details, ever. */
