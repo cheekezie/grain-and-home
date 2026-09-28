@@ -1,4 +1,5 @@
 import ProductCard from "@/components/store/ProductCard";
+import ProductGrid from "@/components/store/ProductGrid";
 import { CategoryTiles, Hero } from "@/components/store/HomeHero";
 import { getPaymentMethods } from "@/lib/paymentMethods";
 import { RecentlyViewed } from "@/components/store/ShopperRows";
@@ -31,11 +32,11 @@ export default async function HomePage() {
       {featured.length > 0 && (
         <section className="mx-auto max-w-7xl px-4 pt-20 sm:px-6">
           <h2 className="font-display text-3xl">{shop.home.featuredHeading}</h2>
-          <div className="mt-8 grid grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-4">
+          <ProductGrid className="mt-8">
             {featured.map((p, i) => (
               <ProductCard key={p.id} product={p} eager={i < 4} />
             ))}
-          </div>
+          </ProductGrid>
         </section>
       )}
     </>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import CheckoutForm from "@/components/store/CheckoutForm";
 import PaymentMethods from "@/components/store/PaymentMethods";
+import BackLink from "@/components/store/BackLink";
 import { getPackPieces, getProduct } from "@/lib/store";
 import { variantLabel } from "@/lib/variants";
 import { PURCHASABLE } from "@/lib/catalogue";
@@ -36,7 +37,8 @@ export default async function CheckoutPage({ searchParams }: PageProps<"/checkou
   }
   return (
     <div className="mx-auto max-w-5xl px-4 pt-12 sm:px-6">
-      <h1 className="font-display text-4xl">Checkout</h1>
+      {buyNow ? <BackLink href={`/products/${buyNow.slug}`}>Back to {buyNow.name}</BackLink> : <BackLink href="/basket">Back to basket</BackLink>}
+      <h1 className="mt-2 font-display text-4xl">Checkout</h1>
       <CheckoutForm
         buyNow={buyNow}
         buyRequested={typeof buy === "string"}

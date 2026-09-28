@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DELIVERY_AREAS, DETAIL_KINDS, GOOGLE_ATTRS, HERO_LAYOUTS } from "@/lib/shop/types";
-import { DEFAULT_THEME, FONT_PAIR_KEYS, contrast, isHex } from "@/lib/shop/theme";
+import { CARD_STYLE_KEYS, DEFAULT_THEME, FONT_PAIR_KEYS, contrast, isHex } from "@/lib/shop/theme";
 
 /** "" = the built-in colour. */
 const colour = z
@@ -104,7 +104,7 @@ export const generalSettingsSchema = z
     }),
     delivery: z.object({ area: z.enum(DELIVERY_AREAS), twoPerson: z.boolean() }),
     google: z.object({ category: optionalText(200), productTypeRoot: optionalText(60) }),
-    theme: z.object({ accent: colour, page: colour, panel: colour, ink: colour, fonts: z.enum(FONT_PAIR_KEYS as [string, ...string[]]) }),
+    theme: z.object({ accent: colour, page: colour, panel: colour, ink: colour, fonts: z.enum(FONT_PAIR_KEYS as [string, ...string[]]), cards: z.enum(CARD_STYLE_KEYS as [string, ...string[]]) }),
   })
   .superRefine((s, ctx) => {
     // Colours must stay readable (WCAG AA, 4.5:1): white text on buttons, text on the page.

@@ -161,6 +161,13 @@ shop-specific is in code any more:
   choose the rest. Shown as text on the pack page; `matchesPreset` in
   `resolvePack` refuses choices that break them; saving drops values the
   piece doesn't have and needs at least one matching combination.
+- Product card styles (Shop settings → Look → Product cards, `theme.cards`):
+  panel (default: whole product on the panel colour), fill (photo covers
+  the card; for model shots), masonry (natural photo shape; `ProductGrid` /
+  `gridClasses.ts` switch the layout to CSS columns). ProductCard is an async
+  server component that reads the style itself.
+- Inner shop pages start with a back link (`components/store/BackLink.tsx`):
+  product → its category, basket → shop, checkout → basket or the product.
 - Not done: second-shop deploy checklist (phase 4). Insights margins use each product's own price/cost (not per
   variant); best-sellers count pack pieces under their own products. The
   Google feed lists a pack as one item without size.

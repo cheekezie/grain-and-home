@@ -18,6 +18,15 @@ export const FONT_VARS: Record<FontPair, { display: string; body: string }> = {
   clean: { display: "var(--font-manrope)", body: "var(--font-manrope)" },
 };
 
+/** How product cards show their photo. */
+export const CARD_STYLES = {
+  panel: { label: "Grid: whole product on a panel", description: "Best for cut-out photos on a plain background (furniture, flat-lay clothing)." },
+  fill: { label: "Grid: photo fills the card", description: "Best for model and lifestyle photos." },
+  masonry: { label: "Masonry", description: "Each photo at its natural shape, in staggered columns." },
+} as const;
+export type CardStyle = keyof typeof CARD_STYLES;
+export const CARD_STYLE_KEYS = Object.keys(CARD_STYLES) as CardStyle[];
+
 export interface ShopTheme {
   /** Buttons, links and highlights. White text sits on it. */
   accent?: string;
@@ -28,9 +37,11 @@ export interface ShopTheme {
   /** Main text colour. */
   ink?: string;
   fonts?: FontPair;
+  /** Empty = "panel". */
+  cards?: CardStyle;
 }
 
-export const DEFAULT_THEME: Required<ShopTheme> = { accent: "#3e5c4a", page: "#ffffff", panel: "#f1f0ed", ink: "#1e1c1a", fonts: "classic" };
+export const DEFAULT_THEME: Required<ShopTheme> = { accent: "#3e5c4a", page: "#ffffff", panel: "#f1f0ed", ink: "#1e1c1a", fonts: "classic", cards: "panel" };
 
 const HEX = /^#[0-9a-f]{6}$/i;
 export const isHex = (s: string) => HEX.test(s);

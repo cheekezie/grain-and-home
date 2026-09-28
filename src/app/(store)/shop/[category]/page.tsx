@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import ProductCard from "@/components/store/ProductCard";
+import ProductGrid from "@/components/store/ProductGrid";
 import { getCategoryProducts } from "@/lib/store";
 import JsonLd from "@/components/JsonLd";
 import RichText from "@/components/store/RichText";
@@ -66,11 +67,11 @@ export default async function CategoryPage({ params }: PageProps<"/shop/[categor
             return (
               <>
                 <p className="tabular mt-8 text-[15px] text-muted">{products.length} {products.length > 1 ? shop.words.items : shop.words.item}</p>
-                <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
+                <ProductGrid cols={3} className="mt-4">
                   {products.map((p, i) => (
                     <ProductCard key={p.id} product={p} eager={i < 8} />
                   ))}
-                </div>
+                </ProductGrid>
               </>
             );
           }
@@ -81,7 +82,7 @@ export default async function CategoryPage({ params }: PageProps<"/shop/[categor
             details: Object.fromEntries(Object.entries(p.details).filter((e): e is [string, string] => typeof e[1] === "string")),
             variants: p.variants.filter((v) => buyable(v.availability)).map((v) => Object.fromEntries(p.options.map((o, k) => [o.name, v.values[k]]))),
           }));
-          return <CategoryGrid items={items} facets={facets} words={shop.words} />;
+          return <CategoryGrid items={items} facets={facets} words={shop.words} masonry={shop.theme?.cards === "masonry"} />;
         })()
       )}
       {cat.guide && (

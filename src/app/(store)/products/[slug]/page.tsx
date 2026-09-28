@@ -13,8 +13,10 @@ import { priceRange } from "@/lib/variants";
 import { formatPrice } from "@/lib/money";
 import { getPackPieces, getPacksContaining, getProduct, getRelated } from "@/lib/store";
 import PackSuggestions from "@/components/store/PackSuggestions";
+import BackLink from "@/components/store/BackLink";
 import JsonLd from "@/components/JsonLd";
 import ProductCard from "@/components/store/ProductCard";
+import ProductGrid from "@/components/store/ProductGrid";
 import { breadcrumbJsonLd, productJsonLd, shareMeta } from "@/lib/seo";
 import { getAnnouncedPromo } from "@/lib/promos";
 import { formatLondonDay } from "@/lib/londonDate";
@@ -67,8 +69,8 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
           breadcrumbJsonLd([{ name: "Home", path: "/" }, { name: catName, path: `/shop/${p.category}` }, { name: p.name, path: `/products/${p.slug}` }]),
         ]}
       />
-      <nav aria-label="Breadcrumb" className="text-[14px] text-muted">
-        <Link href={`/shop/${p.category}`} className="hover:text-moss hover:underline">{catName}</Link>
+      <nav aria-label="Breadcrumb">
+        <BackLink href={`/shop/${p.category}`}>Back to {catName}</BackLink>
       </nav>
 
       <div className="mt-4 grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16">
@@ -171,9 +173,9 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
       {related.length > 0 && (
         <section className="mt-16">
           <h2 className="font-display text-3xl">You might also like</h2>
-          <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-4">
+          <ProductGrid className="mt-6">
             {related.map((r) => <ProductCard key={r.id} product={r} />)}
-          </div>
+          </ProductGrid>
         </section>
       )}
       <RecordView item={shopperItem} />

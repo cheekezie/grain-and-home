@@ -6,7 +6,7 @@ import { CheckboxField, LinesField, Section, SelectField, TextField } from "./fi
 import { ImageField, type ImageValue } from "./editors";
 import type { FormState } from "@/lib/admin/schemas";
 import { STORE_PAGES } from "@/lib/shop/pages";
-import { DEFAULT_THEME, FONT_PAIRS, FONT_PAIR_KEYS, FONT_VARS, type FontPair } from "@/lib/shop/theme";
+import { CARD_STYLES, CARD_STYLE_KEYS, DEFAULT_THEME, FONT_PAIRS, FONT_PAIR_KEYS, FONT_VARS, type CardStyle, type FontPair } from "@/lib/shop/theme";
 import {
   DELIVERY_AREA_LABELS,
   DELIVERY_AREAS,
@@ -91,7 +91,7 @@ export interface GeneralSettingsValue {
   words: ShopWords;
   delivery: { area: DeliveryArea; twoPerson: boolean };
   google: { category: string; productTypeRoot: string };
-  theme: { accent: string; page: string; panel: string; ink: string; fonts: FontPair };
+  theme: { accent: string; page: string; panel: string; ink: string; fonts: FontPair; cards: CardStyle };
 }
 
 const WORD_FIELDS: { key: keyof ShopWords; label: string; hint: string }[] = [
@@ -141,6 +141,14 @@ export function GeneralSettingsEditor({ initial, action, targets }: { initial: G
             ))}
           </div>
         </fieldset>
+        <SelectField
+          label="Product cards"
+          path="theme.cards"
+          value={v.theme.cards}
+          onChange={(n) => set("theme", { ...v.theme, cards: n as CardStyle })}
+          options={CARD_STYLE_KEYS.map((k) => ({ value: k, label: CARD_STYLES[k].label }))}
+          hint={CARD_STYLES[v.theme.cards].description}
+        />
         <ThemePreview theme={v.theme} />
       </Section>
 

@@ -35,7 +35,7 @@ export default async function SettingsPage() {
           words: s.words,
           delivery: s.delivery,
           google: s.google,
-          theme: { accent: s.theme?.accent ?? "", page: s.theme?.page ?? "", panel: s.theme?.panel ?? "", ink: s.theme?.ink ?? "", fonts: s.theme?.fonts ?? "classic" },
+          theme: { accent: s.theme?.accent ?? "", page: s.theme?.page ?? "", panel: s.theme?.panel ?? "", ink: s.theme?.ink ?? "", fonts: s.theme?.fonts ?? "classic", cards: s.theme?.cards ?? "panel" },
         }}
       />
     </div>

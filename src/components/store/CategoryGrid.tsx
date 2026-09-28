@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { gridClass, masonryClass } from "./gridClasses";
 
 // A category's products with filters above them. The cards are rendered on
 // the server and passed in, so every product is in the page's HTML for
@@ -33,10 +34,13 @@ export default function CategoryGrid({
   items,
   facets,
   words,
+  masonry = false,
 }: {
   items: GridItem[];
   facets: Facet[];
   words: { item: string; items: string };
+  /** Staggered columns instead of a grid (shop card style "masonry"). */
+  masonry?: boolean;
 }) {
   const [picked, setPicked] = useState<Picked>({});
   const [inStockOnly, setInStockOnly] = useState(false);
@@ -170,7 +174,7 @@ export default function CategoryGrid({
           <button type="button" onClick={clear} className="font-semibold text-ink underline">Clear filters</button>
         </p>
       ) : (
-        <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
+        <div className={`mt-6 ${masonry ? masonryClass(3) : gridClass(3)}`}>
           {items.map((it) => (
             <div key={it.id} className={shown.includes(it) ? "contents" : "hidden"}>
               {it.card}

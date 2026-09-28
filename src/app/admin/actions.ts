@@ -467,7 +467,7 @@ export async function saveGeneralSettings(_prev: FormState, form: FormData): Pro
   await saveSettingsPart({
     ...rest,
     // Only what's set; empty colours and the classic fonts mean the built-in look.
-    theme: Object.fromEntries(Object.entries(theme).filter(([k, v]) => v && !(k === "fonts" && v === "classic"))),
+    theme: Object.fromEntries(Object.entries(theme).filter(([k, v]) => v && !(k === "fonts" && v === "classic") && !(k === "cards" && v === "panel"))),
     hero: { layout: hero.layout, headline: hero.headline, subline: hero.subline, ...(hero.image && { image: hero.image }), ...(hero.primary && { primary: hero.primary }), ...(hero.secondary && { secondary: hero.secondary }) },
   });
   return { ok: true, message: "Saved" };
