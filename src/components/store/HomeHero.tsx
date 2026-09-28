@@ -170,8 +170,16 @@ export function CategoryTiles({ categories, counts, heading, note, words, headin
               <Link href={`/shop/${c.slug}`} className="group block">
                 <span className="block overflow-hidden rounded-2xl bg-plaster">
                   {c.image ? (
+                    // Cut-outs sit whole on the panel colour (their white background
+                    // blends into it); photos that fill the frame cover the tile.
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={sizedImage(c.image.url, 700)} alt="" className="aspect-[4/3] w-full object-cover transition duration-500 group-hover:scale-[1.03] motion-reduce:transition-none" />
+                    <img
+                      src={sizedImage(c.image.url, 700)}
+                      alt=""
+                      className={`aspect-[4/3] w-full transition duration-500 group-hover:scale-[1.03] motion-reduce:transition-none ${
+                        c.image.cutout ? "object-contain p-6 mix-blend-multiply" : "object-cover"
+                      }`}
+                    />
                   ) : (
                     <span className="flex aspect-[4/3] items-end p-5 text-[15px] text-muted">{c.blurb}</span>
                   )}

@@ -7,6 +7,8 @@ const imageSchema = new Schema(
     alt: { type: String, default: "", trim: true },
     credit: { type: String, trim: true },
     creditUrl: { type: String, trim: true },
+    /** Plain or white background: shown whole on the panel colour. */
+    cutout: Boolean,
   },
   { _id: false },
 );

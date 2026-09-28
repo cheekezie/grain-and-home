@@ -39,6 +39,7 @@ export const imageInput = z
     alt: z.string().trim().max(200),
     credit: z.string().trim().max(120).default(""),
     creditUrl: z.string().trim().default(""),
+    cutout: z.boolean().default(false),
   })
   .superRefine((i, ctx) => {
     if (!i.url) return;
@@ -46,7 +47,9 @@ export const imageInput = z
     if (!i.alt) ctx.addIssue({ code: "custom", path: ["alt"], message: "Describe the photo for people who can't see it" });
     if (i.creditUrl && !/^https:\/\/\S+$/.test(i.creditUrl)) ctx.addIssue({ code: "custom", path: ["creditUrl"], message: "Use a full https:// address" });
   })
-  .transform((i) => (i.url ? { url: i.url, alt: i.alt, ...(i.credit && { credit: i.credit }), ...(i.creditUrl && { creditUrl: i.creditUrl }) } : undefined));
+  .transform((i) =>
+    i.url ? { url: i.url, alt: i.alt, ...(i.credit && { credit: i.credit }), ...(i.creditUrl && { creditUrl: i.creditUrl }), ...(i.cutout && { cutout: true }) } : undefined,
+  );
 
 export const categorySchema = z.object({
   name: text("Name", 60),

@@ -10,7 +10,7 @@ export function toCategoryValue(c?: ShopCategory): CategoryValue {
     intro: c?.intro ?? "",
     metaDescription: c?.metaDescription ?? "",
     guide: c?.guide ?? "",
-    image: { url: c?.image?.url ?? "", alt: c?.image?.alt ?? "", credit: c?.image?.credit ?? "", creditUrl: c?.image?.creditUrl ?? "" },
+    image: { url: c?.image?.url ?? "", alt: c?.image?.alt ?? "", credit: c?.image?.credit ?? "", creditUrl: c?.image?.creditUrl ?? "", cutout: !!c?.image?.cutout },
     sortOrder: c?.sortOrder ?? 100,
   };
 }

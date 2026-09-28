@@ -9,6 +9,8 @@ export interface ShopImage {
   /** Shown as "Photo: <credit>" when set. */
   credit?: string;
   creditUrl?: string;
+  /** A cut-out (plain or white background): shown whole on the panel colour instead of filling its frame. */
+  cutout?: boolean;
 }
 
 export interface ShopLink {

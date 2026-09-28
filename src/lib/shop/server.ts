@@ -42,7 +42,7 @@ export function toCategory(c: LeanCategory): ShopCategory {
     intro: (c.intro as string) ?? "",
     metaDescription: (c.metaDescription as string) ?? "",
     guide: (c.guide as string) ?? "",
-    image: img?.url ? { url: img.url, alt: img.alt ?? "", credit: img.credit || undefined, creditUrl: img.creditUrl || undefined } : undefined,
+    image: img?.url ? { url: img.url, alt: img.alt ?? "", credit: img.credit || undefined, creditUrl: img.creditUrl || undefined, ...(img.cutout && { cutout: true }) } : undefined,
     sortOrder: (c.sortOrder as number) ?? 100,
   };
 }

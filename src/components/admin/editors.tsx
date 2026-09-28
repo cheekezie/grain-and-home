@@ -609,12 +609,27 @@ export interface ImageValue {
   alt: string;
   credit: string;
   creditUrl: string;
+  /** Only where a cut-out can be shown differently (category tiles). */
+  cutout?: boolean;
 }
 
 export const emptyImage: ImageValue = { url: "", alt: "", credit: "", creditUrl: "" };
 
-export function ImageField({ path, value, onChange, hint }: { path: string; value: ImageValue; onChange: (v: ImageValue) => void; hint?: string }) {
-  const set = <K extends keyof ImageValue>(k: K, v: string) => onChange({ ...value, [k]: v });
+export function ImageField({
+  path,
+  value,
+  onChange,
+  hint,
+  allowCutout = false,
+}: {
+  path: string;
+  value: ImageValue;
+  onChange: (v: ImageValue) => void;
+  hint?: string;
+  /** Offer the "cut-out photo" switch. */
+  allowCutout?: boolean;
+}) {
+  const set = <K extends keyof ImageValue>(k: K, v: ImageValue[K]) => onChange({ ...value, [k]: v });
   return (
     <div className="space-y-4">
       <div className="flex gap-4">
@@ -629,6 +644,14 @@ export function ImageField({ path, value, onChange, hint }: { path: string; valu
       {value.url && (
         <>
           <TextField label="Describe the photo" path={`${path}.alt`} value={value.alt} onChange={(n) => set("alt", n)} hint="For people who can't see it, and for search engines." />
+          {allowCutout && (
+            <CheckboxField
+              label="Cut-out photo (plain or white background)"
+              checked={!!value.cutout}
+              onChange={(n) => set("cutout", n)}
+              hint="Shows the whole item on your panel colour, like product cards, so it stands out from the page. Leave off for photos that fill the frame, such as room shots."
+            />
+          )}
           <div className="grid gap-5 sm:grid-cols-2">
             <TextField label="Credit (optional)" path={`${path}.credit`} value={value.credit} onChange={(n) => set("credit", n)} hint="Shown as “Photo: …”, e.g. Jane Smith / Unsplash" />
             <TextField label="Credit link (optional)" path={`${path}.creditUrl`} value={value.creditUrl} onChange={(n) => set("creditUrl", n)} type="url" mono />
@@ -701,7 +724,7 @@ export function CategoryEditor({
       </Section>
 
       <Section title="Photo" hint="Shown on its tile on the home page.">
-        <ImageField path="image" value={v.image} onChange={(i) => set("image", i)} />
+        <ImageField path="image" value={v.image} onChange={(i) => set("image", i)} allowCutout />
       </Section>
 
       <Section title="Top of the page">
