@@ -105,3 +105,13 @@ export const getPacksContaining = cache(async (productId: string) => {
     };
   });
 });
+
+/** Products to suggest when nothing else fits (e.g. on the 404 page): featured ones first, then the newest. */
+export const getSuggestions = cache(async (limit = 4) => {
+  await connectDB();
+  const docs = await ProductModel.find({ ...LISTED, availability: { $nin: ["out_of_stock", "discontinued"] } })
+    .sort({ featured: -1, updatedAt: -1 })
+    .limit(limit)
+    .lean();
+  return docs.map(toStoreProduct);
+});

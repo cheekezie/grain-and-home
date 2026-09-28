@@ -211,5 +211,9 @@ shop-specific is in code any more:
   options, when a category has ≥2 values; plus "In stock only". Cards are
   server-rendered and passed into `CategoryGrid` (client) which only hides
   them, so all products stay in the HTML. No facets = the original plain grid.
-- Shop 404: `(store)/not-found.tsx` inside the shop layout, and
-  `(store)/[...missing]` sends unknown URLs to it.
+- Shop 404: `(store)/not-found.tsx` inside the shop layout (unknown URLs via
+  `(store)/[...missing]`): headline worded for a missing product / category /
+  page (`NotFoundMessage`, which also sets the tab title client-side: a
+  not-found inside a layout can't set head tags), Back to the shop / Contact,
+  category tiles, and "Popular right now" (`getSuggestions`: featured, then
+  newest). Admin has its own 404 (`admin/(panel)/not-found.tsx` + catch-all).
