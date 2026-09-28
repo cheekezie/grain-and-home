@@ -6,6 +6,7 @@
 //
 // 2. Check it against the real services (database, Stripe, domain…):
 //      npx tsx scripts/new-shop.ts check shops/hem-and-ink.env
+//    (with only one file in shops/, the file name can be left out)
 //
 // 3. Fill the new database from its preset (categories, wording, hero…):
 //      npx tsx scripts/new-shop.ts preset shops/hem-and-ink.env
@@ -13,7 +14,7 @@
 // Then paste the file into the Vercel project (Settings → Environment
 // Variables → Import .env) and deploy.
 import { randomBytes, randomInt } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import mongoose from "mongoose";
@@ -226,9 +227,25 @@ function preset(file: string) {
 
 // ------------------------------------------------------------
 
+/**
+ * The shop file to use: the one given, or (if none was given) the only file
+ * in shops/. With several, list them so the right one can be picked.
+ */
+function shopFile(): string {
+  const given = args.slice(1).find((a) => !a.startsWith("--"));
+  if (given) return given;
+  const files = existsSync("shops") ? readdirSync("shops").filter((f) => f.endsWith(".env")) : [];
+  if (files.length === 1) {
+    console.log(`Using shops/${files[0]}`);
+    return join("shops", files[0]);
+  }
+  if (!files.length) fail("No shop files yet. Make one first: npx tsx scripts/new-shop.ts create --name=… --domain=… --preset=…");
+  fail(`Which shop? Add one of these to the command:\n${files.map((f) => `  shops/${f}`).join("\n")}\n\ne.g. npx tsx scripts/new-shop.ts ${command} shops/${files[0]}`);
+}
+
 if (command === "create") create();
-else if (command === "check") check(args[1] ?? fail("Which file? e.g. shops/hem-and-ink.env"));
-else if (command === "preset") preset(args[1] ?? fail("Which file? e.g. shops/hem-and-ink.env"));
+else if (command === "check") check(shopFile());
+else if (command === "preset") preset(shopFile());
 else {
   console.log(readFileSync(new URL(import.meta.url)).toString().split("\n").filter((l) => l.startsWith("//")).map((l) => l.slice(3)).join("\n"));
   process.exit(command ? 1 : 0);

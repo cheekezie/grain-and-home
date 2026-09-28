@@ -52,6 +52,10 @@ npx tsx scripts/new-shop.ts preset shops/hem-and-ink.env
 npx tsx scripts/new-shop.ts check shops/hem-and-ink.env
 ```
 
+`create` prints these exact commands with the file name filled in. With
+only one file in `shops/`, you can leave the file name off (`check`,
+`preset`); with several, the script lists them.
+
 `check` connects to the database and Stripe (read-only) and reports what's
 missing: ✗ must be fixed, ! is worth a look (e.g. no products yet, domain not
 live before the first deploy). `preset` fills the new database with the
