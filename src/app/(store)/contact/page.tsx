@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import PolicyPage from "@/components/store/PolicyPage";
 import { siteConfig } from "@/lib/siteConfig";
 
@@ -14,7 +15,7 @@ export default function ContactPage() {
         {b.phone && <li>Phone: {b.phone}</li>}
         {b.address && <li>Address: {b.address}</li>}
       </ul>
-      <p>Want to send something back? <a href="/returns/request">Start a return</a>.</p>
+      <p>Want to send something back? <Link href="/returns/request">Start a return</Link>.</p>
     </PolicyPage>
   );
 }

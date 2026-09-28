@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { AVAILABILITY, CATEGORY_SLUGS, DELIVERY_TYPES } from "@/lib/catalogue";
+import { AVAILABILITY, DELIVERY_TYPES } from "@/lib/catalogue";
 import { parsePounds } from "@/lib/money";
+import { MAX_OPTIONS, MAX_VARIANTS, OPTION_GOOGLE, syncVariants } from "@/lib/variants";
 import { londonDateTime } from "@/lib/londonDate";
 
 // Validation for everything the admin writes. Editors post the whole record
@@ -38,25 +39,12 @@ const pounds = (label: string, required: boolean) =>
       return p;
     });
 
-const optionalNumber = (label: string, max: number) =>
-  z
-    .string()
-    .trim()
-    .transform((s, ctx) => {
-      if (!s) return undefined;
-      const n = Number(s);
-      if (!Number.isFinite(n) || n <= 0 || n > max) {
-        ctx.addIssue({ code: "custom", message: `${label}: enter a number up to ${max}` });
-        return undefined;
-      }
-      return Math.round(n * 10) / 10;
-    });
-
 export const productSchema = z
   .object({
     slug,
     name: text("Name", 150),
-    category: z.enum(CATEGORY_SLUGS as [string, ...string[]], { error: "Choose a room" }),
+    // Checked against the shop's categories in the save action.
+    category: z.string().trim().min(1, "Choose a category"),
     summary: text("Summary", 300),
     description: text("Description", 8000),
     images: z
@@ -65,13 +53,34 @@ export const productSchema = z
     price: pounds("Price", false),
     supplierCost: pounds("Supplier cost", false),
     returnCost: pounds("Return cost", false),
-    widthCm: optionalNumber("Width", 1000),
-    depthCm: optionalNumber("Depth", 1000),
-    heightCm: optionalNumber("Height", 1000),
-    weightKg: optionalNumber("Weight", 1000),
-    materials: optionalText(300),
-    colour: optionalText(100),
-    assembly: z.enum(["none", "required", "partial"]),
+    // The shop's own details: validated against its fields in the save action.
+    details: z.record(z.string(), z.unknown()).default({}),
+    /** A pack: product ids of its pieces, in order (repeats allowed). */
+    packSlots: z.array(z.string().regex(/^[a-f0-9]{24}$/, "Choose a product")).max(12, "Up to 12 pieces in a pack").default([]),
+    options: z
+      .array(
+        z.object({
+          name: text("Option name", 30),
+          valuesText: z
+            .string()
+            .transform((s) => [...new Set(s.split(",").map((v) => v.trim()).filter(Boolean))])
+            .pipe(z.array(z.string().max(40, "Keep each choice under 40 characters")).min(1, "Add at least one choice").max(30, "Up to 30 choices")),
+          google: z.enum(OPTION_GOOGLE),
+        }),
+      )
+      .max(MAX_OPTIONS),
+    variants: z
+      .array(
+        z.object({
+          id: z.string(),
+          values: z.array(z.string()),
+          price: pounds("Price", false),
+          supplierCost: pounds("Supplier cost", false),
+          supplierSku: optionalText(100),
+          availability: z.enum(AVAILABILITY),
+        }),
+      )
+      .max(MAX_VARIANTS * 2),
     deliveryType: z.enum(DELIVERY_TYPES),
     deliveryEstimate: optionalText(120),
     availability: z.enum(AVAILABILITY),
@@ -84,19 +93,57 @@ export const productSchema = z
     sortOrder: z.coerce.number().int().min(0).max(999),
   })
   .superRefine((p, ctx) => {
+    if (p.packSlots.length && p.options.length) ctx.addIssue({ code: "custom", path: ["options"], message: "A pack has no options of its own: customers choose options for each piece" });
+    if (p.packSlots.length === 1) ctx.addIssue({ code: "custom", path: ["packSlots"], message: "A pack needs at least two pieces" });
+    const names = p.options.map((o) => o.name.toLowerCase());
+    names.forEach((n, i) => {
+      if (names.indexOf(n) !== i) ctx.addIssue({ code: "custom", path: ["options", i, "name"], message: "Two options have the same name" });
+    });
+    const combos = p.options.reduce((n, o) => n * o.valuesText.length, 1);
+    if (p.options.length && combos > MAX_VARIANTS) ctx.addIssue({ code: "custom", path: ["options"], message: `That makes ${combos} combinations; the most is ${MAX_VARIANTS}` });
+    p.variants.forEach((v, i) => {
+      if (v.price !== undefined && v.supplierCost !== undefined && v.supplierCost >= v.price) {
+        ctx.addIssue({ code: "custom", path: ["variants", i], message: "Price is at or below its supplier cost" });
+      }
+    });
     if (p.status !== "published") return;
+    const pack = p.packSlots.length > 0;
     // What a live product must have: something to show, someone to buy it
     // from, and the return cost the law says must be stated up front.
     if (p.price === undefined) ctx.addIssue({ code: "custom", path: ["price"], message: "Set a price before publishing" });
-    if (p.supplierCost === undefined) ctx.addIssue({ code: "custom", path: ["supplierCost"], message: "Enter your supplier cost before publishing, so the margin is known" });
+    // A pack's cost and suppliers come from its pieces (worked out when saved).
+    if (p.supplierCost === undefined && !pack) ctx.addIssue({ code: "custom", path: ["supplierCost"], message: "Enter your supplier cost before publishing, so the margin is known" });
     if (p.images.length === 0) ctx.addIssue({ code: "custom", path: ["images"], message: "Add at least one photo before publishing" });
-    if (!p.supplierId) ctx.addIssue({ code: "custom", path: ["supplierId"], message: "Choose the supplier before publishing" });
+    if (!p.supplierId && !pack) ctx.addIssue({ code: "custom", path: ["supplierId"], message: "Choose the supplier before publishing" });
     if (p.returnCost === undefined) {
       ctx.addIssue({ code: "custom", path: ["returnCost"], message: "State the cost of returning this item before publishing (0 if free)" });
     }
     if (p.supplierCost !== undefined && p.price !== undefined && p.supplierCost >= p.price) {
       ctx.addIssue({ code: "custom", path: ["price"], message: "The price is at or below the supplier cost" });
     }
+    if (p.options.length && !p.variants.some((v) => v.availability === "in_stock" || v.availability === "low_stock")) {
+      ctx.addIssue({ code: "custom", path: ["variants"], message: "Mark at least one combination in stock before publishing" });
+    }
+    // A variant's own cost must still leave a margin at the product's price.
+    p.variants.forEach((v, i) => {
+      if (v.price === undefined && v.supplierCost !== undefined && p.price !== undefined && v.supplierCost >= p.price) {
+        ctx.addIssue({ code: "custom", path: ["variants", i], message: "Its supplier cost is at or above the product's price: give it its own price" });
+      }
+    });
+  })
+  // The variants saved are exactly the options' combinations (keeping what
+  // was set for each); anything stale from an earlier set of options drops.
+  .transform((p) => {
+    const options = p.options.map((o) => ({ name: o.name, values: o.valuesText, ...(o.google && { google: o.google }) }));
+    const variants = syncVariants(options, p.variants, (values, id) => ({ id, values, price: undefined, supplierCost: undefined, supplierSku: "", availability: "in_stock" as const })).map((v) => ({
+      id: v.id,
+      values: v.values,
+      ...(v.price !== undefined && { price: v.price }),
+      ...(v.supplierCost !== undefined && { supplierCost: v.supplierCost }),
+      ...(v.supplierSku && { supplierSku: v.supplierSku }),
+      availability: v.availability,
+    }));
+    return { ...p, options, variants };
   });
 
 export const supplierSchema = z.object({
@@ -142,7 +189,7 @@ export const promoSchema = z
     value: z.string().trim(),
     scope: z.enum(["all", "products", "categories"]),
     productIds: z.array(z.string()).max(200),
-    categories: z.array(z.enum(CATEGORY_SLUGS as [string, ...string[]])).max(20),
+    categories: z.array(z.string()).max(50),
     minSpend: pounds("Minimum spend", false),
     startsOn: day("start"),
     expiresOn: day("end"),
@@ -170,7 +217,7 @@ export const promoSchema = z
       if (Number.isNaN(value) || value < 1) ctx.addIssue({ code: "custom", path: ["value"], message: "An amount like 25 or 25.00" });
     }
     if (p.scope === "products" && p.productIds.length === 0) ctx.addIssue({ code: "custom", path: ["productIds"], message: "Choose at least one product" });
-    if (p.scope === "categories" && p.categories.length === 0) ctx.addIssue({ code: "custom", path: ["categories"], message: "Choose at least one room" });
+    if (p.scope === "categories" && p.categories.length === 0) ctx.addIssue({ code: "custom", path: ["categories"], message: "Choose at least one category" });
     // The headline is what customers read: its % or £ figure must match the
     // real discount (e.g. "10% off" on a 5% code misleads).
     const pct = p.headline.match(/(\d+(?:\.\d+)?)\s*%/);
@@ -200,12 +247,6 @@ export const promoSchema = z
       welcome: p.welcome,
     };
   });
-
-export const roomSchema = z.object({
-  intro: optionalText(300),
-  metaDescription: z.string().trim().max(170, "Keep it under 170 characters; Google cuts off longer ones").default(""),
-  guide: optionalText(20000),
-});
 
 export type FormState = {
   ok: boolean;

@@ -2,11 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import AddToCartForm from "@/components/AddToCartForm";
+import PackForm from "@/components/PackForm";
 import ProductGallery from "@/components/store/ProductGallery";
 import PaymentMethods from "@/components/store/PaymentMethods";
-import { AVAILABILITY_LABELS, DELIVERY_LABELS, PURCHASABLE, categoryName } from "@/lib/catalogue";
+import { AVAILABILITY_LABELS, DELIVERY_LABELS, PURCHASABLE } from "@/lib/catalogue";
+import { getCategoryNames, getShopSettings } from "@/lib/shop/server";
+import { detailRows } from "@/lib/shop/details";
+import { deliveryAreaText } from "@/lib/shop/types";
+import { priceRange } from "@/lib/variants";
 import { formatPrice } from "@/lib/money";
-import { getProduct, getRelated } from "@/lib/store";
+import { getPackPieces, getProduct, getRelated } from "@/lib/store";
 import JsonLd from "@/components/JsonLd";
 import ProductCard from "@/components/store/ProductCard";
 import { breadcrumbJsonLd, productJsonLd, shareMeta } from "@/lib/seo";
@@ -20,42 +25,43 @@ import { RecentlyViewed, RecordView } from "@/components/store/ShopperRows";
 export const revalidate = 300;
 
 export async function generateMetadata({ params }: PageProps<"/products/[slug]">): Promise<Metadata> {
-  const p = await getProduct((await params).slug);
+  const [p, shop] = await Promise.all([getProduct((await params).slug), getShopSettings()]);
   if (!p) return {};
-  const description = `${p.summary} ${formatPrice(p.price)}, free delivery to mainland UK.`;
+  const description = `${p.summary} ${formatPrice(p.price)}, free delivery to ${deliveryAreaText(shop.delivery.area)}.`;
   return { title: p.name, description, ...shareMeta({ title: p.name, description, path: `/products/${p.slug}`, image: p.images[0]?.url }) };
 }
-
-const ASSEMBLY = { none: "Arrives assembled", partial: "Some assembly required", required: "Self-assembly required" } as const;
 
 export default async function ProductPage({ params }: PageProps<"/products/[slug]">) {
   const p = await getProduct((await params).slug);
   if (!p) notFound();
-  const purchasable = PURCHASABLE.includes(p.availability);
-  const [promo, related] = await Promise.all([getAnnouncedPromo(), getRelated(p.id, p.category)]);
+  // With options, it can be bought if at least one combination is in stock;
+  // a pack, if every piece can be.
+  const inStock = (x: { availability: (typeof PURCHASABLE)[number] | string; variants: { availability: string }[] }) =>
+    (PURCHASABLE as readonly string[]).includes(x.availability) && (!x.variants.length || x.variants.some((v) => (PURCHASABLE as readonly string[]).includes(v.availability)));
+  const pieces = await getPackPieces(p.packSlots);
+  const purchasable = inStock(p) && pieces.every(inStock);
+  const range = priceRange(p);
+  const [promo, related, shop, categoryName] = await Promise.all([getAnnouncedPromo(), getRelated(p.id, p.category), getShopSettings(), getCategoryNames()]);
+  const area = deliveryAreaText(shop.delivery.area);
+  const catName = categoryName(p.category);
   const promoApplies =
     promo && (promo.scope === "all" || (promo.scope === "products" ? promo.productIds.includes(p.id) : promo.categories.includes(p.category)));
   const shopperItem = { productId: p.id, slug: p.slug, name: p.name, image: p.images[0]?.url ?? null };
-  const dims = [p.widthCm && `W ${p.widthCm} cm`, p.depthCm && `D ${p.depthCm} cm`, p.heightCm && `H ${p.heightCm} cm`].filter(Boolean).join(" × ");
-
-  const specs: [string, string][] = [
-    ["Dimensions", dims],
-    ["Weight", p.weightKg ? `${p.weightKg} kg` : ""],
-    ["Materials", p.materials],
-    ["Colour", p.colour],
-    ["Assembly", ASSEMBLY[p.assembly]],
-  ].filter(([, v]) => v) as [string, string][];
+  const rows = detailRows(shop.details, p.details);
+  // Short details go in the table; long ones (ingredients, care) get their own section below.
+  const specs = rows.filter(([, , f]) => f.kind !== "longtext");
+  const longDetails = rows.filter(([, , f]) => f.kind === "longtext");
 
   return (
     <div className="mx-auto max-w-7xl px-4 pt-8 sm:px-6">
       <JsonLd
         data={[
-          productJsonLd(p),
-          breadcrumbJsonLd([{ name: "Home", path: "/" }, { name: categoryName(p.category), path: `/shop/${p.category}` }, { name: p.name, path: `/products/${p.slug}` }]),
+          productJsonLd(p, { categoryName: catName, deliveryArea: shop.delivery.area, details: shop.details }),
+          breadcrumbJsonLd([{ name: "Home", path: "/" }, { name: catName, path: `/shop/${p.category}` }, { name: p.name, path: `/products/${p.slug}` }]),
         ]}
       />
       <nav aria-label="Breadcrumb" className="text-[14px] text-muted">
-        <Link href={`/shop/${p.category}`} className="hover:text-moss hover:underline">{categoryName(p.category)}</Link>
+        <Link href={`/shop/${p.category}`} className="hover:text-moss hover:underline">{catName}</Link>
       </nav>
 
       <div className="mt-4 grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16">
@@ -63,11 +69,13 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
 
         <div>
           <h1 className="font-display text-[clamp(2rem,4vw,3rem)] leading-tight">{p.name}</h1>
-          <p className="tabular mt-3 text-2xl font-semibold">{formatPrice(p.price)}</p>
-          <p className="mt-1 text-[14px] text-muted">Including VAT and delivery to mainland UK</p>
+          <p className="tabular mt-3 text-2xl font-semibold">
+            {range.min === range.max ? formatPrice(range.min) : `${formatPrice(range.min)} – ${formatPrice(range.max)}`}
+          </p>
+          <p className="mt-1 text-[14px] text-muted">Including VAT and delivery to {area}</p>
 
           <p className={`mt-5 text-[15px] font-medium ${purchasable ? "text-moss" : "text-danger"}`}>
-            {AVAILABILITY_LABELS[p.availability]}
+            {purchasable ? AVAILABILITY_LABELS[p.availability] : AVAILABILITY_LABELS[p.availability === "discontinued" ? "discontinued" : "out_of_stock"]}
             {purchasable && p.deliveryEstimate && <span className="font-normal text-ink">: {p.deliveryEstimate}</span>}
           </p>
 
@@ -86,6 +94,16 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
 
           {!purchasable && <StockAlertForm productId={p.id} />}
 
+          {pieces.length > 0 && purchasable ? (
+            <PackForm
+              productId={p.id}
+              slug={p.slug}
+              name={p.name}
+              price={p.price}
+              image={p.images[0]?.url ?? null}
+              pieces={pieces.map((x) => ({ name: x.name, image: x.images[0]?.url ?? null, availability: x.availability, options: x.options, variants: x.variants }))}
+            />
+          ) : purchasable && !pieces.length ? (
           <AddToCartForm
             productId={p.id}
             slug={p.slug}
@@ -93,7 +111,10 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
             price={p.price}
             image={p.images[0]?.url ?? null}
             purchasable={purchasable}
+            options={p.options}
+            variants={p.variants}
           />
+          ) : null}
           <div className="mt-4"><SaveButton item={shopperItem} /></div>
           <div className="mt-6">
             <PaymentMethods compact />
@@ -113,7 +134,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
           <section className="mt-8 rounded-2xl bg-plaster p-5 text-[15px]">
             <h2 className="font-semibold">Delivery and returns</h2>
             <ul className="mt-2 space-y-1.5">
-              <li>{DELIVERY_LABELS[p.deliveryType]}, free to mainland UK.{p.deliveryEstimate && ` ${p.deliveryEstimate}.`}</li>
+              <li>{shop.delivery.twoPerson ? DELIVERY_LABELS[p.deliveryType] : "Delivery"}, free to {area}.{p.deliveryEstimate && ` ${p.deliveryEstimate}.`}</li>
               <li>
                 You can cancel within 14 days of delivery.{" "}
                 {p.returnCost != null
@@ -130,8 +151,14 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
       </div>
 
       <section className="mt-16 max-w-3xl">
-        <h2 className="font-display text-3xl">About this piece</h2>
+        <h2 className="font-display text-3xl">{shop.words.aboutItem}</h2>
         <div className="mt-4 whitespace-pre-line text-[16px] leading-relaxed">{p.description}</div>
+        {longDetails.map(([label, value]) => (
+          <div key={label} className="mt-8">
+            <h3 className="font-display text-2xl">{label}</h3>
+            <div className="mt-3 whitespace-pre-line text-[16px] leading-relaxed">{value}</div>
+          </div>
+        ))}
       </section>
       {related.length > 0 && (
         <section className="mt-16">

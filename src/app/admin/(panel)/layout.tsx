@@ -26,12 +26,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           { href: "/admin/returns", label: "Returns", badge: returns.new ?? 0 },
           { href: "/admin/supplier-emails", label: "Supplier emails", badge: (mail.new ?? 0) + (mail.unmatched ?? 0) },
           { href: "/admin/products", label: "Products" },
-          { href: "/admin/rooms", label: "Room pages" },
+          { href: "/admin/categories", label: "Categories" },
           { href: "/admin/stock", label: "Stock check" },
           { href: "/admin/suppliers", label: "Suppliers" },
           { href: "/admin/promos", label: "Promo codes" },
           { href: "/admin/subscribers", label: "Subscribers" },
           { href: "/admin/alerts", label: "Back in stock", badge: marketing.backInStock },
+          { href: "/admin/settings", label: "Shop settings" },
         ]}
         footer={
           <>

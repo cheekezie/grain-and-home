@@ -4,6 +4,7 @@ import { formatPrice } from "@/lib/money";
 import { AVAILABILITY_LABELS } from "@/lib/catalogue";
 import SaveButton from "./SaveButton";
 import QuickAdd from "./QuickAdd";
+import { priceRange } from "@/lib/variants";
 import ShopImage from "@/components/store/ShopImage";
 
 // The photo and the name/price are separate links to the same page (the
@@ -13,6 +14,9 @@ export default function ProductCard({ product: p, eager = false }: { product: St
   const img = p.images[0];
   const unavailable = p.availability === "out_of_stock";
   const href = `/products/${p.slug}`;
+  const range = priceRange(p);
+  // Options or a pack: chosen on the product page, so no quick add.
+  const withOptions = p.variants.length > 0 || p.packSlots.length > 0;
   return (
     <div className="group">
       <div className="relative">
@@ -35,7 +39,8 @@ export default function ProductCard({ product: p, eager = false }: { product: St
         <span className="absolute right-2 top-2">
           <SaveButton variant="icon" item={{ productId: p.id, slug: p.slug, name: p.name, image: img?.url ?? null }} />
         </span>
-        {!unavailable && (
+        {/* Products with options (Size…) are added from their page, once a choice is made. */}
+        {!unavailable && !withOptions && (
           <span className="absolute bottom-2 right-2">
             <QuickAdd item={{ productId: p.id, slug: p.slug, name: p.name, price: p.price, image: img?.url ?? null }} />
           </span>
@@ -43,7 +48,7 @@ export default function ProductCard({ product: p, eager = false }: { product: St
       </div>
       <Link href={href} className="block">
         <span className="mt-3 block text-[15px] leading-snug group-hover:text-moss">{p.name}</span>
-        <span className="tabular mt-0.5 block font-semibold">{formatPrice(p.price)}</span>
+        <span className="tabular mt-0.5 block font-semibold">{range.min === range.max ? formatPrice(range.min) : `From ${formatPrice(range.min)}`}</span>
       </Link>
     </div>
   );

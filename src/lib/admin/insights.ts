@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { fetchStripeFee } from "@/lib/stripeFees";
 import OrderModel from "@/models/Order";
 import ProductModel from "@/models/Product";
-import { categoryName } from "@/lib/catalogue";
+import { getCategoryNames } from "@/lib/shop/server";
 
 // Sales and profit reporting. All money in pence.
 //
@@ -185,6 +185,7 @@ export async function getInsights(range: RangeKey) {
 export async function getProductMargins() {
   await requireAdmin();
   await connectDB();
+  const categoryName = await getCategoryNames();
   const products = await ProductModel.find({ price: { $gt: 0 } }).select("name slug category status price supplierCost").sort({ category: 1, name: 1 }).lean();
   // All-time units sold per product (orders not cancelled or refunded), to rank best sellers.
   const sales = await OrderModel.aggregate<{ _id: unknown; units: number; revenue: number }>([

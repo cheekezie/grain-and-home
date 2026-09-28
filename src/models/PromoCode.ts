@@ -1,6 +1,5 @@
 import { Schema, type InferSchemaType } from "mongoose";
 import { defineModel } from "./define";
-import { CATEGORY_SLUGS } from "@/lib/catalogue";
 
 // A discount code created in the admin. Applied at checkout, recalculated
 // on the server every time; Stripe only ever sees the final amount off.
@@ -14,7 +13,7 @@ const promoSchema = new Schema(
     value: { type: Number, required: true, min: 1 },
     scope: { type: String, enum: ["all", "products", "categories"], default: "all" },
     products: [{ type: Schema.Types.ObjectId, ref: "Product" }],
-    categories: [{ type: String, enum: CATEGORY_SLUGS }],
+    categories: [{ type: String }],
     /** Minimum basket subtotal in pence. */
     minSpend: { type: Number, min: 0 },
     startsAt: Date,

@@ -1,18 +1,18 @@
 import Link from "next/link";
-import { CATEGORIES } from "@/lib/catalogue";
-import { HERO_PHOTO, ROOM_PHOTOS, unsplash } from "@/lib/roomPhotos";
+import { imageSrcSet, sizedImage } from "@/lib/shop/images";
+import type { HeroSettings, ShopCategory, ShopImage, ShopLink, ShopSettings } from "@/lib/shop/types";
 
-// Home page top: a full-bleed room photo with one headline (Loaf/Castlery
-// pattern, chosen by the owner 2026-09-26), the reasons to trust us right
-// under it, then photo tiles for every room.
+// Home page top, in the layout chosen in Admin → Shop settings. Every
+// layout renders the headline as the page's one <h1> in real text, and
+// loads its photo first at the right size: the two things search engines
+// and page speed care about most. Chosen on the server, so only one
+// layout's markup is ever sent.
 
 /** Trust promises. Klarna only when Stripe actually offers it. */
-export function TrustStrip({ klarna, tone = "plain" }: { klarna: boolean; tone?: "plain" | "band" }) {
-  const items = [
-    { title: "Free delivery", text: "To mainland UK addresses" },
-    { title: "14 days to change your mind", text: "From the day it arrives" },
-    klarna ? { title: "Pay later with Klarna", text: "At checkout, if eligible" } : { title: "Secure checkout", text: "Payments by Stripe" },
-  ];
+export function TrustStrip({ trust, klarna, tone = "plain" }: { trust: ShopSettings["trust"]; klarna: boolean; tone?: "plain" | "band" }) {
+  const items = [...trust.items];
+  if (klarna && trust.klarnaReplacesLast && items.length) items[items.length - 1] = { title: "Pay later with Klarna", text: "At checkout, if eligible" };
+  if (!items.length) return null;
   return (
     <ul className={`grid gap-x-8 gap-y-3 sm:grid-cols-3 ${tone === "band" ? "mx-auto max-w-7xl px-4 py-5 sm:px-6" : ""}`}>
       {items.map((i) => (
@@ -25,66 +25,167 @@ export function TrustStrip({ klarna, tone = "plain" }: { klarna: boolean; tone?:
   );
 }
 
-/** Full-bleed room photo with the headline low on the left (Loaf, Castlery). */
-export function HeroRoom({ klarna }: { klarna: boolean }) {
-  const photo = HERO_PHOTO;
+function Credit({ image, className }: { image: ShopImage; className: string }) {
+  if (!image.credit) return null;
+  return image.creditUrl ? (
+    <a href={image.creditUrl} target="_blank" rel="noopener" className={`${className} hover:underline`}>Photo: {image.credit}</a>
+  ) : (
+    <span className={className}>Photo: {image.credit}</span>
+  );
+}
+
+function HeroPhoto({ image, sizes, className }: { image: ShopImage; sizes: string; className: string }) {
   return (
-    <section>
-      <div className="relative isolate flex min-h-[min(78vh,760px)] items-end overflow-hidden bg-ink">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={unsplash(photo.src, 2000)}
-          srcSet={[900, 1400, 2000].map((w) => `${unsplash(photo.src, w)} ${w}w`).join(", ")}
-          sizes="100vw"
-          alt={photo.alt}
-          fetchPriority="high"
-          className="absolute inset-0 -z-10 size-full object-cover"
-        />
-        <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-r from-ink/70 via-ink/35 to-transparent" />
-        <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-ink/50 to-transparent to-50%" />
-        <div className="mx-auto w-full max-w-7xl px-4 pb-12 pt-40 text-white sm:px-6 sm:pb-16">
-          <h1 className="max-w-2xl font-display text-[clamp(2.6rem,6.5vw,5rem)] leading-[1.02]">Solid wood furniture, made for real rooms.</h1>
-          <p className="mt-4 max-w-lg text-lg text-white/85">Bedside tables, sideboards, desks and more, delivered free across mainland UK.</p>
-          <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Link href="/shop/living-room" className="rounded-full bg-white px-7 py-3.5 font-semibold text-ink hover:bg-plaster">Shop living room</Link>
-            <Link href="/shop/bedroom" className="rounded-full border border-white/60 px-7 py-3.5 font-semibold text-white hover:bg-white/10">Shop bedroom</Link>
-          </div>
-          <a href={photo.page} target="_blank" rel="noopener" className="mt-8 inline-block text-[11px] text-white/70 hover:underline">
-            Photo: {photo.credit} / Unsplash
-          </a>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={sizedImage(image.url, 2000)}
+      srcSet={imageSrcSet(image.url, [900, 1400, 2000])}
+      sizes={sizes}
+      alt={image.alt}
+      fetchPriority="high"
+      className={className}
+    />
+  );
+}
+
+function Buttons({ primary, secondary, tone }: { primary?: ShopLink; secondary?: ShopLink; tone: "light" | "dark" }) {
+  if (!primary && !secondary) return null;
+  const solid = tone === "light" ? "bg-white text-ink hover:bg-plaster" : "bg-ink text-white hover:bg-ink/85";
+  const outline = tone === "light" ? "border-white/60 text-white hover:bg-white/10" : "border-ink/30 text-ink hover:bg-plaster";
+  return (
+    <div className="mt-7 flex flex-wrap items-center gap-3">
+      {primary && <Link href={primary.href} className={`rounded-full px-7 py-3.5 font-semibold ${solid}`}>{primary.label}</Link>}
+      {secondary && <Link href={secondary.href} className={`rounded-full border px-7 py-3.5 font-semibold ${outline}`}>{secondary.label}</Link>}
+    </div>
+  );
+}
+
+/** Full-bleed photo with the headline low on the left (Loaf, Castlery). */
+function PhotoHero({ hero, image }: { hero: HeroSettings; image: ShopImage }) {
+  return (
+    <div className="relative isolate flex min-h-[min(78vh,760px)] items-end overflow-hidden bg-ink">
+      <HeroPhoto image={image} sizes="100vw" className="absolute inset-0 -z-10 size-full object-cover" />
+      <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-r from-ink/70 via-ink/35 to-transparent" />
+      <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-ink/50 to-transparent to-50%" />
+      <div className="mx-auto w-full max-w-7xl px-4 pb-12 pt-40 text-white sm:px-6 sm:pb-16">
+        <h1 className="max-w-2xl font-display text-[clamp(2.6rem,6.5vw,5rem)] leading-[1.02]">{hero.headline}</h1>
+        {hero.subline && <p className="mt-4 max-w-lg text-lg text-white/85">{hero.subline}</p>}
+        <Buttons primary={hero.primary} secondary={hero.secondary} tone="light" />
+        <Credit image={image} className="mt-8 inline-block text-[11px] text-white/70" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Full-bleed photo with the words in a solid panel: readable over any photo,
+ * busy or bright, with no gradient needed. On phones the panel sits below
+ * the photo instead of covering it.
+ */
+function PanelHero({ hero, image }: { hero: HeroSettings; image: ShopImage }) {
+  return (
+    <div className="relative isolate bg-plaster md:flex md:min-h-[min(72vh,700px)] md:items-end">
+      <div className="relative aspect-[4/3] md:absolute md:inset-0 md:-z-10 md:aspect-auto">
+        <HeroPhoto image={image} sizes="100vw" className="absolute inset-0 size-full object-cover" />
+      </div>
+      <div className="mx-auto w-full max-w-7xl md:px-6 md:pb-12">
+        <div className="bg-page px-4 py-8 sm:px-6 md:max-w-xl md:rounded-2xl md:p-10 md:shadow-lift">
+          <h1 className="font-display text-[clamp(2.3rem,5vw,3.75rem)] leading-[1.05]">{hero.headline}</h1>
+          {hero.subline && <p className="mt-3 text-lg text-muted">{hero.subline}</p>}
+          <Buttons primary={hero.primary} secondary={hero.secondary} tone="dark" />
+          <Credit image={image} className="mt-6 inline-block text-[11px] text-muted" />
         </div>
       </div>
-      <div className="border-b border-line bg-plaster"><TrustStrip klarna={klarna} tone="band" /></div>
+    </div>
+  );
+}
+
+/** Headline on the left, photo on the right; stacked on phones. */
+function SplitHero({ hero, image }: { hero: HeroSettings; image: ShopImage }) {
+  return (
+    <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 pb-12 pt-8 sm:px-6 md:grid-cols-2 md:gap-14 md:pt-12">
+      <div className="order-2 md:order-1">
+        <h1 className="font-display text-[clamp(2.4rem,5.5vw,4.25rem)] leading-[1.04]">{hero.headline}</h1>
+        {hero.subline && <p className="mt-4 max-w-lg text-lg text-muted">{hero.subline}</p>}
+        <Buttons primary={hero.primary} secondary={hero.secondary} tone="dark" />
+      </div>
+      <div className="order-1 md:order-2">
+        <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-plaster md:aspect-[4/5]">
+          <HeroPhoto image={image} sizes="(min-width: 768px) 50vw, 100vw" className="absolute inset-0 size-full object-cover" />
+        </div>
+        <Credit image={image} className="mt-2 inline-block text-[11px] text-muted" />
+      </div>
+    </div>
+  );
+}
+
+/** Just the words: for a shop without its own photography yet. */
+function TextHero({ hero }: { hero: HeroSettings }) {
+  return (
+    <div className="mx-auto max-w-7xl px-4 pb-14 pt-16 sm:px-6 md:pt-24">
+      <h1 className="max-w-3xl font-display text-[clamp(2.6rem,6.5vw,5rem)] leading-[1.02]">{hero.headline}</h1>
+      {hero.subline && <p className="mt-4 max-w-xl text-lg text-muted">{hero.subline}</p>}
+      <Buttons primary={hero.primary} secondary={hero.secondary} tone="dark" />
+    </div>
+  );
+}
+
+export function Hero({ hero, trust, klarna }: { hero: HeroSettings; trust: ShopSettings["trust"]; klarna: boolean }) {
+  const image = hero.image?.url ? hero.image : undefined;
+  return (
+    <section>
+      {hero.layout === "photo" && image ? (
+        <PhotoHero hero={hero} image={image} />
+      ) : hero.layout === "panel" && image ? (
+        <PanelHero hero={hero} image={image} />
+      ) : hero.layout === "split" && image ? (
+        <SplitHero hero={hero} image={image} />
+      ) : (
+        <TextHero hero={hero} />
+      )}
+      <div className="border-b border-line bg-plaster"><TrustStrip trust={trust} klarna={klarna} tone="band" /></div>
     </section>
   );
 }
 
-/** Shop-by-room tiles, each with a room photo. */
-export function RoomTiles({ counts }: { counts: Record<string, number> }) {
+/** Category tiles. Without a photo a tile shows the category's short line instead. */
+export function CategoryTiles({ categories, counts, heading, note, words, headingLevel = "h2" }: {
+  headingLevel?: "h1" | "h2";
+  categories: ShopCategory[];
+  counts: Record<string, number>;
+  heading: string;
+  note: string;
+  words: { item: string; items: string };
+}) {
+  if (!categories.length) return null;
+  const Heading = headingLevel;
   return (
     <section className="mx-auto max-w-7xl px-4 pt-16 sm:px-6">
-      <h2 className="font-display text-3xl">Shop by room</h2>
+      <Heading className="font-display text-3xl">{heading}</Heading>
       <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3">
-        {CATEGORIES.map((c) => {
-          const photo = ROOM_PHOTOS[c.slug];
+        {categories.map((c) => {
           const n = counts[c.slug] ?? 0;
           return (
             <li key={c.slug}>
               <Link href={`/shop/${c.slug}`} className="group block">
                 <span className="block overflow-hidden rounded-2xl bg-plaster">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={unsplash(photo.src, 700)} alt="" className="aspect-[4/3] w-full object-cover transition duration-500 group-hover:scale-[1.03] motion-reduce:transition-none" />
+                  {c.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={sizedImage(c.image.url, 700)} alt="" className="aspect-[4/3] w-full object-cover transition duration-500 group-hover:scale-[1.03] motion-reduce:transition-none" />
+                  ) : (
+                    <span className="flex aspect-[4/3] items-end p-5 text-[15px] text-muted">{c.blurb}</span>
+                  )}
                 </span>
                 <span className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3">
                   <span className="font-display text-xl group-hover:text-moss">{c.name}</span>
-                  <span className="tabular text-[14px] text-muted">{n ? `${n} piece${n > 1 ? "s" : ""}` : "Coming soon"}</span>
+                  <span className="tabular text-[14px] text-muted">{n ? `${n} ${n > 1 ? words.items : words.item}` : "Coming soon"}</span>
                 </span>
               </Link>
             </li>
           );
         })}
       </ul>
-      <p className="mt-4 text-right text-[11px] text-muted">Room photos from Unsplash</p>
+      {note && <p className="mt-4 text-right text-[11px] text-muted">{note}</p>}
     </section>
   );
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { lookupPostcode } from "@/lib/address";
+import { getShopSettings } from "@/lib/shop/server";
 
 // Light per-IP limit: paid lookups cost per request, and this endpoint is
 // public. In-memory, so per server instance; enough to stop casual abuse.
@@ -19,5 +20,5 @@ export async function GET(request: Request) {
 
   const postcode = new URL(request.url).searchParams.get("postcode") ?? "";
   if (postcode.length > 10) return NextResponse.json({ ok: false, reason: "invalid", postcode }, { status: 400 });
-  return NextResponse.json(await lookupPostcode(postcode));
+  return NextResponse.json(await lookupPostcode(postcode, (await getShopSettings()).delivery.area));
 }

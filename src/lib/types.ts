@@ -1,4 +1,6 @@
-import type { Availability, CategorySlug, DeliveryType, OrderStatus } from "./catalogue";
+import type { Availability, DeliveryType, OrderStatus } from "./catalogue";
+import type { DetailValue } from "./shop/types";
+import type { AdminVariant, ProductOption, StoreVariant } from "./variants";
 
 export type Status = "draft" | "published";
 
@@ -12,18 +14,18 @@ export interface StoreProduct {
   id: string;
   slug: string;
   name: string;
-  category: CategorySlug;
+  category: string;
   summary: string;
   description: string;
   images: ProductImage[];
   price: number;
-  widthCm?: number;
-  depthCm?: number;
-  heightCm?: number;
-  weightKg?: number;
-  materials: string;
-  colour: string;
-  assembly: "none" | "required" | "partial";
+  /** The shop's product details, by field key. */
+  details: Record<string, DetailValue>;
+  options: ProductOption[];
+  /** Empty when the product has no options. Supplier fields stripped. */
+  variants: StoreVariant[];
+  /** A pack: the product id of each piece, in order. Empty for ordinary products. */
+  packSlots: string[];
   deliveryType: DeliveryType;
   deliveryEstimate: string;
   returnCost?: number;
@@ -32,7 +34,8 @@ export interface StoreProduct {
 }
 
 /** Admin view: everything, including supplier and cost. */
-export interface AdminProduct extends Omit<StoreProduct, "price"> {
+export interface AdminProduct extends Omit<StoreProduct, "price" | "variants"> {
+  variants: AdminVariant[];
   /** Drafts may not have a price yet. */
   price?: number;
   internalNotes: string;
@@ -66,7 +69,14 @@ export interface OrderItem {
   id: string;
   productId?: string;
   slug?: string;
+  /** Includes the variant, e.g. "Classic tee (M / Black)". */
   name: string;
+  /** "M / Black" when the product has options. */
+  variant?: string;
+  variantId?: string;
+  /** Set on each piece of a pack: which pack line it came from, and the pack's name. */
+  packGroup?: string;
+  packName?: string;
   image?: string;
   unitPrice: number;
   quantity: number;
@@ -106,6 +116,14 @@ export interface Order {
 
 export type CartItem = {
   productId: string;
+  /** Set when the product has options (Size, Colour…): which one was chosen. */
+  variantId?: string;
+  /** "M / Black", for display. */
+  variant?: string;
+  /** A pack: the chosen variant id for each piece ("" for a piece without options). */
+  choices?: string[];
+  /** A pack: what's in it, for display, e.g. ["Classic tee, M / Black", "Classic tee, L / Grey"]. */
+  pieces?: string[];
   slug: string;
   name: string;
   /** Display only: checkout always re-reads the price on the server. */

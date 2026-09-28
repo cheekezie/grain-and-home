@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useActionState, useContext, useEffect, useRef, useState } from "react";
+import { createContext, startTransition, useActionState, useContext, useEffect, useRef, useState } from "react";
 import type { FormState } from "@/lib/admin/schemas";
 import { showToast } from "@/lib/toast";
 
@@ -63,9 +63,14 @@ export default function EditorForm({
   return (
     <ErrorsContext.Provider value={state?.errors ?? {}}>
       <form
-        action={(fd) => {
+        // Submitted by hand rather than with `action`: React resets a form after
+        // its action runs, which leaves controlled <select>s showing their first
+        // option while the editor still holds the real value.
+        onSubmit={(e) => {
+          e.preventDefault();
           submitted.current = json;
-          return formAction(fd);
+          const fd = new FormData(e.currentTarget);
+          startTransition(() => formAction(fd));
         }}
         className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]"
       >
@@ -112,6 +117,8 @@ function fieldName(path: string): string {
     price: "Price", supplierCost: "Supplier cost", returnCost: "Return cost", supplierId: "Supplier", supplierUrl: "Supplier link",
     supplierSku: "Supplier code", widthCm: "Width", depthCm: "Depth", heightCm: "Height", weightKg: "Weight",
     deliveryEstimate: "Delivery time", orderUrl: "Ordering page", contactEmail: "Contact email", website: "Website",
+    items: "Link", children: "dropdown link", href: "address", label: "text", primary: "main button", secondary: "second button",
+    details: "Details", fields: "Detail",
   };
   const parts = path.split(".");
   const out: string[] = [];

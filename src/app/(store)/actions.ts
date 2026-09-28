@@ -5,7 +5,9 @@ import { isValidObjectId } from "mongoose";
 import { z } from "zod";
 import { connectDB } from "@/lib/db";
 import { getWelcomePromo } from "@/lib/promos";
-import { SUBSCRIBE_CONSENT } from "@/lib/marketing";
+import { subscribeConsent } from "@/lib/marketing";
+import { siteConfig } from "@/lib/siteConfig";
+import { getShopSettings } from "@/lib/shop/server";
 import SubscriberModel from "@/models/Subscriber";
 import StockAlertModel from "@/models/StockAlert";
 import ProductModel from "@/models/Product";
@@ -20,14 +22,15 @@ export async function subscribe(input: string, source: string): Promise<Subscrib
   const parsed = email.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Enter a valid email address." };
   await connectDB();
+  const consentText = subscribeConsent(siteConfig.name, (await getShopSettings()).words.items);
   const existing = await SubscriberModel.findOne({ email: parsed.data }).lean();
   if (existing && !existing.unsubscribedAt) {
     return { ok: true, already: true };
   }
   if (existing) {
-    await SubscriberModel.updateOne({ _id: existing._id }, { $set: { consentText: SUBSCRIBE_CONSENT, source: source.slice(0, 30) }, $unset: { unsubscribedAt: 1 } });
+    await SubscriberModel.updateOne({ _id: existing._id }, { $set: { consentText, source: source.slice(0, 30) }, $unset: { unsubscribedAt: 1 } });
   } else {
-    await SubscriberModel.create({ email: parsed.data, source: source.slice(0, 30), consentText: SUBSCRIBE_CONSENT, unsubscribeToken: randomBytes(24).toString("base64url") });
+    await SubscriberModel.create({ email: parsed.data, source: source.slice(0, 30), consentText, unsubscribeToken: randomBytes(24).toString("base64url") });
   }
   // A welcome code only for genuinely new sign-ups.
   const w = existing ? null : await getWelcomePromo();

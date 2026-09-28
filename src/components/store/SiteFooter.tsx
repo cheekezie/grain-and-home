@@ -1,19 +1,20 @@
 import Link from "next/link";
-import { CATEGORIES } from "@/lib/catalogue";
+import { getCategories, getShopSettings } from "@/lib/shop/server";
 import { businessDetailsMissing, siteConfig } from "@/lib/siteConfig";
 import PaymentMethods from "./PaymentMethods";
 import SubscribeForm from "./SubscribeForm";
 import CookieSettingsButton from "@/components/consent/CookieSettingsButton";
 
-export default function SiteFooter() {
+export default async function SiteFooter() {
   const b = siteConfig.business;
+  const [shop, categories] = await Promise.all([getShopSettings(), getCategories()]);
   return (
     <footer className="mt-24 border-t border-line bg-plaster">
       <div className="border-b border-line">
         <div className="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 md:grid-cols-2 md:items-center">
           <div>
-            <h2 className="font-display text-2xl">Offers and new pieces, first</h2>
-            <p className="mt-1 text-[15px] text-muted">Occasional emails, no spam. Unsubscribe any time.</p>
+            <h2 className="font-display text-2xl">{shop.words.newsletterHeading}</h2>
+            <p className="mt-1 text-[15px] text-muted">{shop.words.newsletterText}</p>
           </div>
           <SubscribeForm source="footer" />
         </div>
@@ -21,13 +22,13 @@ export default function SiteFooter() {
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4">
         <div>
           <p className="font-display text-2xl">{siteConfig.name}</p>
-          <p className="mt-3 text-[15px] text-muted">{siteConfig.tagline}</p>
+          <p className="mt-3 text-[15px] text-muted">{shop.tagline}</p>
           <div className="mt-6">
             <PaymentMethods compact />
           </div>
         </div>
         <ul className="space-y-2 text-[15px]">
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <li key={c.slug}><Link href={`/shop/${c.slug}`} className="hover:text-moss">{c.name}</Link></li>
           ))}
         </ul>

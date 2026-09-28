@@ -88,6 +88,8 @@ export function orderConfirmationEmail(input: {
   total: number;
   address?: { name?: string; line1?: string; line2?: string; city?: string; postalCode?: string };
   deliveryEstimate?: string;
+  /** "mainland UK" / "UK", from the shop's delivery area. */
+  deliveryAreaText: string;
 }) {
   const shop = siteConfig.name;
   const first = input.customerName?.trim().split(/\s+/)[0];
@@ -108,7 +110,7 @@ export function orderConfirmationEmail(input: {
     ...input.items.map((i) => `${i.quantity} × ${i.name}  ${gbp(i.lineTotal)}`),
     "",
     ...(input.discount > 0 ? [`Subtotal: ${gbp(subtotal)}`, `Discount${input.promoCode ? ` (${input.promoCode})` : ""}: −${gbp(input.discount)}`] : []),
-    "Delivery (mainland UK): Free",
+    `Delivery (${input.deliveryAreaText}): Free`,
     `Total paid: ${gbp(input.total)}`,
     ...(addr.length ? ["", "Delivering to:", ...addr] : []),
     "",
@@ -134,7 +136,7 @@ export function orderConfirmationEmail(input: {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:15px;border-top:1px solid #e4e1dc;border-bottom:1px solid #e4e1dc;margin:12px 0">
 ${input.items.map((i) => row(`${i.quantity} × ${i.name}`, gbp(i.lineTotal))).join("")}
 ${input.discount > 0 ? row("Subtotal", gbp(subtotal)) + row(`Discount${input.promoCode ? ` (${input.promoCode})` : ""}`, `−${gbp(input.discount)}`) : ""}
-${row("Delivery (mainland UK)", "Free")}
+${row(`Delivery (${esc(input.deliveryAreaText)})`, "Free")}
 ${row("Total paid", gbp(input.total), true)}
 </table>
 ${addr.length ? `<p style="margin-bottom:4px"><strong>Delivering to</strong></p><p style="margin-top:0">${addr.map(esc).join("<br>")}</p>` : ""}

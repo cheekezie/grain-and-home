@@ -53,6 +53,12 @@ export default async function StockPage() {
                       {p.supplierSku && <span className="font-mono text-muted">{p.supplierSku} </span>}
                       {p.supplierUrl && <a href={p.supplierUrl} target="_blank" rel="noopener" className="font-semibold text-moss underline">Check on supplier site</a>}
                     </p>
+                    {p.variants.length > 0 && (
+                      <p className="text-[13px] text-muted">
+                        {p.variants.filter((v) => v.availability === "out_of_stock" || v.availability === "discontinued").length} of {p.variants.length} options out of stock.{" "}
+                        <Link href={`/admin/products/${p.id}`} className="underline">Set stock per option</Link>. The buttons here cover the whole product.
+                      </p>
+                    )}
                     <p className={`tabular text-[13px] ${stale ? "font-semibold text-danger" : "text-muted"}`}>
                       {p.availabilityCheckedAt ? `Checked ${fmt.format(new Date(p.availabilityCheckedAt))}${d ? ` (${d} day${d > 1 ? "s" : ""} ago)` : " (today)"}` : "Never checked"}
                     </p>

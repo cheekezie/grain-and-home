@@ -3,7 +3,10 @@
 import { useState } from "react";
 import EditorForm, { useFieldError } from "./EditorForm";
 import { CheckboxField, ImagesField, MarginNote, MoneyField, Section, SelectField, StatusField, TextField } from "./fields";
-import { AVAILABILITY, AVAILABILITY_LABELS, CATEGORIES, DELIVERY_LABELS, DELIVERY_TYPES } from "@/lib/catalogue";
+import { AVAILABILITY, AVAILABILITY_LABELS, DELIVERY_LABELS, DELIVERY_TYPES } from "@/lib/catalogue";
+import type { DetailFormValue } from "@/lib/shop/details";
+import type { DetailField } from "@/lib/shop/types";
+import ProductOptions, { type OptionFormValue, type VariantFormValue } from "./ProductOptions";
 import type { FormState } from "@/lib/admin/schemas";
 import type { ProductImage } from "@/lib/types";
 
@@ -25,13 +28,11 @@ export interface ProductValue {
   price: string;
   supplierCost: string;
   returnCost: string;
-  widthCm: string;
-  depthCm: string;
-  heightCm: string;
-  weightKg: string;
-  materials: string;
-  colour: string;
-  assembly: "none" | "required" | "partial";
+  details: Record<string, DetailFormValue>;
+  options: OptionFormValue[];
+  variants: VariantFormValue[];
+  /** A pack: the product id of each piece. */
+  packSlots: string[];
   deliveryType: "courier" | "two_person";
   deliveryEstimate: string;
   availability: string;
@@ -44,6 +45,17 @@ export interface ProductValue {
   sortOrder: number;
 }
 
+/** What the product editor needs to know about this shop. */
+export interface ProductEditorShop {
+  categories: { value: string; label: string }[];
+  categoryLabel: string;
+  fields: DetailField[];
+  twoPerson: boolean;
+  areaText: string;
+  /** Products that can go in a pack (not packs themselves). Cost in pence. */
+  packProducts: { value: string; label: string; cost?: number; hasOptions: boolean }[];
+}
+
 export function ProductEditor({
   initial,
   isNew,
@@ -52,7 +64,9 @@ export function ProductEditor({
   justCreated,
   aside,
   checkedAt,
+  shop,
 }: {
+  shop: ProductEditorShop;
   initial: ProductValue;
   isNew: boolean;
   action: Action;
@@ -89,54 +103,64 @@ export function ProductEditor({
           hint={`/products/${v.slug || "…"}. Changing it on a live product breaks existing links.`}
           mono
         />
-        <SelectField label="Room" path="category" value={v.category} onChange={(n) => set("category", n)} options={CATEGORIES.map((c) => ({ value: c.slug, label: c.name }))} />
+        <SelectField
+          label={shop.categoryLabel}
+          path="category"
+          value={v.category}
+          onChange={(n) => set("category", n)}
+          options={[...(v.category ? [] : [{ value: "", label: shop.categories.length ? "Choose…" : "Add a category first" }]), ...shop.categories]}
+        />
         <TextField label="Summary" path="summary" value={v.summary} onChange={(n) => set("summary", n)} hint="One or two sentences, shown next to the price." multiline rows={2} />
         <TextField label="Description" path="description" value={v.description} onChange={(n) => set("description", n)} multiline rows={8} />
         <CheckboxField label="Feature on the home page" checked={v.featured} onChange={(n) => set("featured", n)} />
-        <TextField label="Position" path="sortOrder" type="number" value={String(v.sortOrder)} onChange={(n) => set("sortOrder", Number(n) || 0)} hint="Lower numbers come first in the room." />
+        <TextField label="Position" path="sortOrder" type="number" value={String(v.sortOrder)} onChange={(n) => set("sortOrder", Number(n) || 0)} hint={`Lower numbers come first in the ${shop.categoryLabel.toLowerCase()}.`} />
       </Section>
 
       <Section title="Photos">
         <ImagesField path="images" value={v.images} onChange={(i) => set("images", i)} />
       </Section>
 
-      <Section title="Price and margin" hint="Prices include VAT and mainland UK delivery.">
+      <Section title="Price and margin" hint={`Prices include VAT and ${shop.areaText} delivery.`}>
         <div className="grid gap-5 sm:grid-cols-2">
           <MoneyField label="Price" path="price" value={v.price} onChange={(n) => set("price", n)} />
-          <MoneyField label="Supplier cost" path="supplierCost" value={v.supplierCost} onChange={(n) => set("supplierCost", n)} hint="What you pay the supplier, delivered. Never shown on the shop." />
+          {v.packSlots.length === 0 && (
+            <MoneyField label="Supplier cost" path="supplierCost" value={v.supplierCost} onChange={(n) => set("supplierCost", n)} hint="What you pay the supplier, delivered. Never shown on the shop." />
+          )}
         </div>
-        <MarginNote price={v.price} cost={v.supplierCost} />
+        {v.packSlots.length === 0 ? <MarginNote price={v.price} cost={v.supplierCost} /> : <p className="text-[14px] text-muted">A pack&rsquo;s cost is its pieces&rsquo; costs: see Pack.</p>}
       </Section>
 
-      <Section title="Specification">
-        <div className="grid gap-5 sm:grid-cols-4">
-          <TextField label="Width (cm)" path="widthCm" value={v.widthCm} onChange={(n) => set("widthCm", n)} />
-          <TextField label="Depth (cm)" path="depthCm" value={v.depthCm} onChange={(n) => set("depthCm", n)} />
-          <TextField label="Height (cm)" path="heightCm" value={v.heightCm} onChange={(n) => set("heightCm", n)} />
-          <TextField label="Weight (kg)" path="weightKg" value={v.weightKg} onChange={(n) => set("weightKg", n)} />
-        </div>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <TextField label="Materials" path="materials" value={v.materials} onChange={(n) => set("materials", n)} />
-          <TextField label="Colour" path="colour" value={v.colour} onChange={(n) => set("colour", n)} />
-        </div>
-        <SelectField
-          label="Assembly"
-          path="assembly"
-          value={v.assembly}
-          onChange={(n) => set("assembly", n as ProductValue["assembly"])}
-          options={[{ value: "required", label: "Self-assembly required" }, { value: "partial", label: "Some assembly required" }, { value: "none", label: "Arrives assembled" }]}
-        />
+      <Section title="Pack" hint="A set of your products sold together at one price, e.g. 3 T-shirts. Customers choose the options (size, colour) for each piece.">
+        <PackPieces value={v.packSlots} onChange={(s) => set("packSlots", s)} products={shop.packProducts} price={v.price} />
       </Section>
+
+      {v.packSlots.length === 0 && (
+        <Section title="Options" hint="Choices the customer makes, like Size or Colour. Each combination gets its own stock, and its own price if it costs more.">
+          <ProductOptions options={v.options} variants={v.variants} productPrice={v.price} onChange={(options, variants) => setV((p) => ({ ...p, options, variants }))} />
+        </Section>
+      )}
+
+      {shop.fields.length > 0 && (
+        <Section title="Details" hint="Shown on the product page. Set which details products have in Shop settings → Product details.">
+          <DetailFields fields={shop.fields} value={v.details} onChange={(d) => set("details", d)} />
+        </Section>
+      )}
 
       <Section title="Delivery and returns" hint="The return cost is shown on the product page. UK law requires it up front for items that can't be posted.">
         <div className="grid gap-5 sm:grid-cols-2">
-          <SelectField label="Delivery" path="deliveryType" value={v.deliveryType} onChange={(n) => set("deliveryType", n as ProductValue["deliveryType"])} options={DELIVERY_TYPES.map((d) => ({ value: d, label: DELIVERY_LABELS[d] }))} />
+          {shop.twoPerson && (
+            <SelectField label="Delivery" path="deliveryType" value={v.deliveryType} onChange={(n) => set("deliveryType", n as ProductValue["deliveryType"])} options={DELIVERY_TYPES.map((d) => ({ value: d, label: DELIVERY_LABELS[d] }))} />
+          )}
           <TextField label="Delivery time" path="deliveryEstimate" value={v.deliveryEstimate} onChange={(n) => set("deliveryEstimate", n)} hint="As the supplier quotes it, e.g. Delivered in 3–5 working days" />
         </div>
         <MoneyField label="Return cost if the customer changes their mind" path="returnCost" value={v.returnCost} onChange={(n) => set("returnCost", n)} hint="Usually the supplier's collection charge. Enter 0 if returns are free. Required to publish." />
       </Section>
 
       <Section title="Supplier and availability" hint="Internal only. Customers never see who supplies a product.">
+        {v.packSlots.length > 0 ? (
+          <p className="text-[14px] text-muted">Each piece is ordered from its own product&rsquo;s supplier.</p>
+        ) : (
+          <>
         <SelectField
           label="Supplier"
           path="supplierId"
@@ -148,6 +172,8 @@ export function ProductEditor({
           <TextField label="Supplier product code" path="supplierSku" value={v.supplierSku} onChange={(n) => set("supplierSku", n)} mono />
           <TextField label="Supplier product page" path="supplierUrl" value={v.supplierUrl} onChange={(n) => set("supplierUrl", n)} type="url" mono hint="Where you order it. Shown on orders for quick ordering." />
         </div>
+          </>
+        )}
         <SelectField
           label="Availability"
           path="availability"
@@ -167,6 +193,115 @@ export function ProductEditor({
         />
       </Section>
     </EditorForm>
+  );
+}
+
+function PackPieces({ value, onChange, products, price }: { value: string[]; onChange: (v: string[]) => void; products: ProductEditorShop["packProducts"]; price: string }) {
+  const byId = new Map(products.map((p) => [p.value, p]));
+  const costs = value.map((id) => byId.get(id)?.cost);
+  const known = costs.every((c) => typeof c === "number");
+  const total = known ? costs.reduce<number>((a, c) => a + (c as number), 0) : null;
+  const pricePence = Math.round(parseFloat(price.replace(/[£,\s]/g, "")) * 100);
+  const move = (i: number, d: number) => {
+    const next = [...value];
+    [next[i], next[i + d]] = [next[i + d], next[i]];
+    onChange(next);
+  };
+  if (!value.length) {
+    return (
+      <button type="button" onClick={() => onChange(["", ""])} className="self-start font-semibold underline">
+        Make this a pack
+      </button>
+    );
+  }
+  return (
+    <>
+      <ol className="space-y-3">
+        {value.map((id, i) => (
+          <li key={i} className="grid items-end gap-3 sm:grid-cols-[1fr_10rem]">
+            <SelectField
+              label={`Piece ${i + 1}`}
+              path={`packSlots.${i}`}
+              value={id}
+              onChange={(n) => onChange(value.map((x, j) => (j === i ? n : x)))}
+              options={[...(id ? [] : [{ value: "", label: "Choose a product…" }]), ...products.map((p) => ({ value: p.value, label: `${p.label}${p.hasOptions ? " · customer picks options" : ""}` }))]}
+            />
+            <div className="mb-3 flex gap-3 text-[14px] font-semibold">
+              {i > 0 && <button type="button" onClick={() => move(i, -1)} className="underline">Up</button>}
+              {i < value.length - 1 && <button type="button" onClick={() => move(i, 1)} className="underline">Down</button>}
+              <button type="button" onClick={() => onChange(value.filter((_, j) => j !== i))} className="text-danger underline">Remove</button>
+            </div>
+          </li>
+        ))}
+      </ol>
+      {value.length < 12 && (
+        <button type="button" onClick={() => onChange([...value, value.at(-1) ?? ""])} className="self-start font-semibold underline">
+          Add a piece
+        </button>
+      )}
+      <PackError />
+      <p className="rounded-lg bg-plaster px-3 py-2 text-[14px]">
+        {total == null
+          ? "Supplier cost: set a supplier cost on every piece to see it."
+          : `Supplier cost of the pieces: £${(total / 100).toFixed(2)}${pricePence > 0 ? `, margin ${Math.round(((pricePence - total) / pricePence) * 100)}% at this price` : ""}. The pack's cost updates when a piece's does.`}
+        {" "}Each piece is ordered from its own supplier.
+      </p>
+    </>
+  );
+}
+
+function PackError() {
+  const error = useFieldError("packSlots");
+  return error ? <p className="text-[14px] font-semibold text-danger">{error}</p> : null;
+}
+
+function DetailFields({ fields, value, onChange }: { fields: DetailField[]; value: Record<string, DetailFormValue>; onChange: (v: Record<string, DetailFormValue>) => void }) {
+  const setKey = (k: string, v: DetailFormValue) => onChange({ ...value, [k]: v });
+  const short = fields.filter((f) => f.kind !== "longtext" && f.kind !== "dimensions");
+  return (
+    <>
+      {fields.filter((f) => f.kind === "dimensions").map((f) => {
+        const d = (typeof value[f.key] === "object" ? value[f.key] : { w: "", d: "", h: "" }) as { w: string; d: string; h: string };
+        return (
+          <div key={f.key} className="grid gap-5 sm:grid-cols-3">
+            <TextField label={`${f.label}: width (cm)`} path={`details.${f.key}`} value={d.w} onChange={(n) => setKey(f.key, { ...d, w: n })} />
+            <TextField label="Depth (cm)" path={`details.${f.key}.d`} value={d.d} onChange={(n) => setKey(f.key, { ...d, d: n })} />
+            <TextField label="Height (cm)" path={`details.${f.key}.h`} value={d.h} onChange={(n) => setKey(f.key, { ...d, h: n })} />
+          </div>
+        );
+      })}
+      {short.length > 0 && (
+        <div className="grid gap-5 sm:grid-cols-2">
+          {short.map((f) => {
+            const label = `${f.label}${f.unit ? ` (${f.unit})` : ""}${f.required ? "" : " (optional)"}`;
+            const val = typeof value[f.key] === "string" ? (value[f.key] as string) : "";
+            return f.kind === "select" ? (
+              <SelectField
+                key={f.key}
+                label={label}
+                path={`details.${f.key}`}
+                value={val}
+                onChange={(n) => setKey(f.key, n)}
+                options={[{ value: "", label: "Not set" }, ...(f.options ?? []).map((o) => ({ value: o, label: o }))]}
+              />
+            ) : (
+              <TextField key={f.key} label={label} path={`details.${f.key}`} value={val} onChange={(n) => setKey(f.key, n)} />
+            );
+          })}
+        </div>
+      )}
+      {fields.filter((f) => f.kind === "longtext").map((f) => (
+        <TextField
+          key={f.key}
+          label={`${f.label}${f.required ? "" : " (optional)"}`}
+          path={`details.${f.key}`}
+          value={typeof value[f.key] === "string" ? (value[f.key] as string) : ""}
+          onChange={(n) => setKey(f.key, n)}
+          multiline
+          rows={5}
+        />
+      ))}
+    </>
   );
 }
 
@@ -296,12 +431,17 @@ export function PromoEditor({
   initial,
   action,
   products,
+  categories,
+  categoriesLabel,
   justCreated,
   aside,
 }: {
   initial: PromoValue;
   action: Action;
   products: { id: string; name: string; category: string; live: boolean }[];
+  categories: { slug: string; name: string }[];
+  /** "Rooms", "Collections"… */
+  categoriesLabel: string;
   justCreated?: boolean;
   aside?: React.ReactNode;
 }) {
@@ -344,13 +484,13 @@ export function PromoEditor({
           path="scope"
           value={v.scope}
           onChange={(n) => set("scope", n as PromoValue["scope"])}
-          options={[{ value: "all", label: "Everything" }, { value: "categories", label: "Chosen rooms" }, { value: "products", label: "Chosen products" }]}
+          options={[{ value: "all", label: "Everything" }, { value: "categories", label: `Chosen ${categoriesLabel.toLowerCase()}` }, { value: "products", label: "Chosen products" }]}
         />
         {v.scope === "categories" && (
           <fieldset>
-            <legend className="font-semibold">Rooms</legend>
+            <legend className="font-semibold">{categoriesLabel}</legend>
             <div className="mt-2 grid gap-2 sm:grid-cols-3">
-              {CATEGORIES.map((c) => (
+              {categories.map((c) => (
                 <label key={c.slug} className="flex items-center gap-2">
                   <input type="checkbox" checked={v.categories.includes(c.slug)} onChange={() => toggle("categories", c.slug)} className="size-5 accent-accent" />
                   {c.name}
@@ -410,20 +550,108 @@ function PathError({ path }: { path: string }) {
   return error ? <p className="mt-1 text-[14px] font-semibold text-danger">{error}</p> : null;
 }
 
-// ------------------------------------------------------------ room page
+// ------------------------------------------------------------ shared: one photo
 
-export interface RoomValue {
+export interface ImageValue {
+  url: string;
+  alt: string;
+  credit: string;
+  creditUrl: string;
+}
+
+export const emptyImage: ImageValue = { url: "", alt: "", credit: "", creditUrl: "" };
+
+export function ImageField({ path, value, onChange, hint }: { path: string; value: ImageValue; onChange: (v: ImageValue) => void; hint?: string }) {
+  const set = <K extends keyof ImageValue>(k: K, v: string) => onChange({ ...value, [k]: v });
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-4">
+        {value.url && /^https:\/\//.test(value.url) && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={value.url} alt="" className="h-24 w-32 shrink-0 rounded-lg bg-plaster object-cover" />
+        )}
+        <div className="min-w-0 flex-1">
+          <TextField label="Photo link" path={`${path}.url`} value={value.url} onChange={(n) => set("url", n)} type="url" mono hint={hint ?? "https://… Leave empty for no photo. Only use photos you have the right to use."} />
+        </div>
+      </div>
+      {value.url && (
+        <>
+          <TextField label="Describe the photo" path={`${path}.alt`} value={value.alt} onChange={(n) => set("alt", n)} hint="For people who can't see it, and for search engines." />
+          <div className="grid gap-5 sm:grid-cols-2">
+            <TextField label="Credit (optional)" path={`${path}.credit`} value={value.credit} onChange={(n) => set("credit", n)} hint="Shown as “Photo: …”, e.g. Jane Smith / Unsplash" />
+            <TextField label="Credit link (optional)" path={`${path}.creditUrl`} value={value.creditUrl} onChange={(n) => set("creditUrl", n)} type="url" mono />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------ category
+
+export interface CategoryValue {
+  name: string;
+  slug: string;
+  blurb: string;
+  pageTitle: string;
   intro: string;
   metaDescription: string;
   guide: string;
+  image: ImageValue;
+  sortOrder: number;
 }
 
-export function RoomEditor({ initial, action, roomName, defaultBlurb }: { initial: RoomValue; action: Action; roomName: string; defaultBlurb: string }) {
+export function CategoryEditor({
+  initial,
+  isNew,
+  action,
+  justCreated,
+  aside,
+  label,
+}: {
+  initial: CategoryValue;
+  isNew: boolean;
+  action: Action;
+  justCreated?: boolean;
+  aside?: React.ReactNode;
+  /** "Room", "Collection"… */
+  label: string;
+}) {
   const [v, setV] = useState(initial);
-  const set = <K extends keyof RoomValue>(k: K, val: RoomValue[K]) => setV((p) => ({ ...p, [k]: val }));
+  const [slugTouched, setSlugTouched] = useState(!isNew);
+  const set = <K extends keyof CategoryValue>(k: K, val: CategoryValue[K]) => setV((p) => ({ ...p, [k]: val }));
   const words = v.guide.trim() ? v.guide.trim().split(/\s+/).length : 0;
   return (
-    <EditorForm action={action} payload={v}>
+    <EditorForm action={action} payload={v} justCreated={justCreated} aside={aside}>
+      <Section title={label}>
+        <TextField
+          label="Name"
+          path="name"
+          value={v.name}
+          onChange={(n) => {
+            set("name", n);
+            if (!slugTouched) set("slug", slugify(n));
+          }}
+        />
+        <TextField
+          label="Web address"
+          path="slug"
+          value={v.slug}
+          onChange={(n) => {
+            setSlugTouched(true);
+            set("slug", n);
+          }}
+          hint={`/shop/${v.slug || "…"}. Changing it later breaks existing links to the page (products move with it).`}
+          mono
+        />
+        <TextField label="Short description" path="blurb" value={v.blurb} onChange={(n) => set("blurb", n)} hint="One line, e.g. what's in it. Shown when there's no intro or photo." />
+        <TextField label="Position" path="sortOrder" type="number" value={String(v.sortOrder)} onChange={(n) => set("sortOrder", Number(n) || 0)} hint="Lower numbers come first in the nav and on the home page." />
+      </Section>
+
+      <Section title="Photo" hint="Shown on its tile on the home page.">
+        <ImageField path="image" value={v.image} onChange={(i) => set("image", i)} />
+      </Section>
+
       <Section title="Top of the page">
         <TextField
           label="Intro"
@@ -432,10 +660,12 @@ export function RoomEditor({ initial, action, roomName, defaultBlurb }: { initia
           onChange={(n) => set("intro", n)}
           multiline
           rows={2}
-          hint={`One or two sentences under “${roomName}”. Empty uses: “${defaultBlurb}”`}
+          hint={`One or two sentences under “${v.name || "the name"}”. Empty uses the short description.`}
         />
       </Section>
-      <Section title="In Google" hint="What Google shows under the page title in search results.">
+
+      <Section title="In Google" hint="What Google shows in search results.">
+        <TextField label="Page title" path="pageTitle" value={v.pageTitle} onChange={(n) => set("pageTitle", n)} hint={`Empty uses the name. Say what people search for, e.g. “${v.name || "Dining"} furniture”.`} />
         <TextField
           label="Search description"
           path="metaDescription"
@@ -443,12 +673,13 @@ export function RoomEditor({ initial, action, roomName, defaultBlurb }: { initia
           onChange={(n) => set("metaDescription", n)}
           multiline
           rows={2}
-          hint={`${v.metaDescription.length}/160 characters. Say what's here and why to click, e.g. “Solid mango wood bedside tables and chests, delivered free across mainland UK.”`}
+          hint={`${v.metaDescription.length}/160 characters. Say what's here and why to click.`}
         />
       </Section>
+
       <Section
         title="Buying guide"
-        hint="Shown below the products. Helpful, specific advice ranks: sizes, materials, what to measure. Write it yourself or from real product facts, never invented claims."
+        hint="Shown below the products. Helpful, specific advice ranks: sizes, materials, what to look for. Write it yourself or from real product facts, never invented claims."
       >
         <TextField
           label="Guide"

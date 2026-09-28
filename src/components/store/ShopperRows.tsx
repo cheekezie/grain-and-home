@@ -7,6 +7,8 @@ import { formatPrice } from "@/lib/money";
 import { AVAILABILITY_LABELS } from "@/lib/catalogue";
 import { recentItems, recordViewed, savedItems, type ShopperItem } from "@/lib/shopperLists";
 import SaveButton from "./SaveButton";
+import { priceRange } from "@/lib/variants";
+import { useShopWords } from "./ShopWords";
 import ShopImage from "@/components/store/ShopImage";
 
 /** Fetch current details (price, stock) for items stored in the browser. */
@@ -56,7 +58,7 @@ function MiniCard({ p }: { p: StoreProduct }) {
           )}
         </span>
         <span className="mt-2 block text-[15px] leading-snug group-hover:text-moss">{p.name}</span>
-        <span className="tabular block font-semibold">{formatPrice(p.price)}</span>
+        <span className="tabular block font-semibold">{(({ min, max }) => (min === max ? formatPrice(min) : `From ${formatPrice(min)}`))(priceRange(p))}</span>
       </Link>
       <span className="absolute right-2 top-2">
         <SaveButton
@@ -101,15 +103,16 @@ export function RecentlyViewed({ exclude, title = "Recently viewed" }: { exclude
 }
 
 export function SavedList() {
+  const words = useShopWords();
   const items = savedItems.useList();
   const { loading, products } = useCurrent(items);
   if (items.length === 0) {
     return (
       <div className="mt-8 rounded-2xl bg-plaster p-8">
         <p className="text-lg">Nothing saved yet.</p>
-        <p className="mt-1 text-muted">Tap the heart on any piece to keep it here for later.</p>
+        <p className="mt-1 text-muted">Tap the heart on any {words.item} to keep it here for later.</p>
         <Link href="/" className="mt-3 inline-block font-semibold text-moss underline underline-offset-2">
-          Browse furniture
+          {words.browse}
         </Link>
       </div>
     );

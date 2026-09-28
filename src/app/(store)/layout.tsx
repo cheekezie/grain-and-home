@@ -6,10 +6,13 @@ import PromoDialog from "@/components/store/PromoDialog";
 import CookieBanner from "@/components/consent/CookieBanner";
 import Toaster from "@/components/store/Toaster";
 import { getAnnouncedPromo, getWelcomePromo } from "@/lib/promos";
+import { getClientWords } from "@/lib/shop/server";
+import { ShopWordsProvider } from "@/components/store/ShopWords";
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
-  const [announced, welcome] = await Promise.all([getAnnouncedPromo(), getWelcomePromo()]);
+  const [announced, welcome, words] = await Promise.all([getAnnouncedPromo(), getWelcomePromo(), getClientWords()]);
   return (
+    <ShopWordsProvider value={words}>
     <CartProvider>
       <div className="flex min-h-dvh flex-col">
         <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:rounded focus:bg-page focus:px-3 focus:py-2">
@@ -24,5 +27,6 @@ export default async function StoreLayout({ children }: { children: React.ReactN
       <Toaster />
       <CookieBanner />
     </CartProvider>
+    </ShopWordsProvider>
   );
 }

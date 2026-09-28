@@ -1,5 +1,5 @@
 // Wording people agree to when they subscribe; stored with each sign-up.
-export const SUBSCRIBE_CONSENT = "Email me offers and new pieces from Grain & Home. I can unsubscribe at any time.";
+export const subscribeConsent = (storeName: string, items: string) => `Email me offers and new ${items} from ${storeName}. I can unsubscribe at any time.`;
 
 /** Promo code a customer claimed from the offer pop-up or sign-up, prefilled at checkout. */
 export const CLAIMED_PROMO_KEY = "claimed-promo-v1";

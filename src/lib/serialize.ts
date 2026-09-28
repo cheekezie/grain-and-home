@@ -18,24 +18,30 @@ export function toStoreProduct(p: Lean): T.StoreProduct {
     description: p.description,
     images: (p.images ?? []).map((i: Lean) => ({ url: i.url, alt: i.alt ?? "" })),
     price: p.price,
-    widthCm: num(p.widthCm),
-    depthCm: num(p.depthCm),
-    heightCm: num(p.heightCm),
-    weightKg: num(p.weightKg),
-    materials: p.materials ?? "",
-    colour: p.colour ?? "",
-    assembly: p.assembly ?? "required",
+    details: p.details && typeof p.details === "object" ? { ...p.details } : {},
     deliveryType: p.deliveryType ?? "courier",
     deliveryEstimate: p.deliveryEstimate ?? "",
     returnCost: num(p.returnCost),
     availability: p.availability ?? "in_stock",
     featured: !!p.featured,
+    packSlots: (p.packSlots ?? []).map(String),
+    options: (p.options ?? []).map((o: Lean) => ({ name: o.name, values: [...(o.values ?? [])], ...(o.google && { google: o.google }) })),
+    // Customers see each variant's own price, or the product's.
+    variants: (p.variants ?? []).map((v: Lean) => ({ id: v.id, values: [...(v.values ?? [])], price: num(v.price) ?? p.price, availability: v.availability ?? "in_stock" })),
   };
 }
 
 export function toAdminProduct(p: Lean): T.AdminProduct {
   return {
     ...toStoreProduct(p),
+    variants: (p.variants ?? []).map((v: Lean) => ({
+      id: v.id,
+      values: [...(v.values ?? [])],
+      price: num(v.price),
+      supplierCost: num(v.supplierCost),
+      supplierSku: v.supplierSku || undefined,
+      availability: v.availability ?? "in_stock",
+    })),
     price: num(p.price),
     internalNotes: p.internalNotes ?? "",
     status: p.status,
@@ -81,6 +87,10 @@ export function toOrder(o: Lean): T.Order {
       productId: i.product ? String(i.product) : undefined,
       slug: i.slug || undefined,
       name: i.name,
+      variant: i.variant || undefined,
+      variantId: i.variantId || undefined,
+      packGroup: i.packGroup || undefined,
+      packName: i.packName || undefined,
       image: i.image || undefined,
       unitPrice: i.unitPrice,
       quantity: i.quantity,

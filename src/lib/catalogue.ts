@@ -1,19 +1,6 @@
 // Store-wide lists shared by the storefront, admin and models. Kept free of
 // database code so client components can import it.
 
-export const CATEGORIES = [
-  { slug: "living-room", name: "Living room", blurb: "TV units, coffee tables, sideboards and shelving." },
-  { slug: "dining", name: "Dining", blurb: "Tables, chairs, bar stools and storage." },
-  { slug: "bedroom", name: "Bedroom", blurb: "Bedside tables, chests of drawers and storage." },
-  { slug: "home-office", name: "Home office", blurb: "Desks, bookcases and office chairs." },
-  { slug: "storage", name: "Storage", blurb: "Shelving, cabinets and space-saving pieces." },
-  { slug: "accents", name: "Accents", blurb: "Mirrors, side tables and occasional chairs." },
-] as const;
-
-export type CategorySlug = (typeof CATEGORIES)[number]["slug"];
-export const CATEGORY_SLUGS = CATEGORIES.map((c) => c.slug) as CategorySlug[];
-export const categoryName = (slug: string) => CATEGORIES.find((c) => c.slug === slug)?.name ?? slug;
-
 /** What we last heard from the supplier. Out of stock and discontinued can't be bought. */
 export const AVAILABILITY = ["in_stock", "low_stock", "out_of_stock", "discontinued"] as const;
 export type Availability = (typeof AVAILABILITY)[number];

@@ -6,19 +6,20 @@ import { orderingInbox } from "@/lib/mail/inboxSettings";
 import { ORDER_STATUS_LABELS } from "@/lib/catalogue";
 import { formatPrice, marginPercent } from "@/lib/money";
 import { checkDeliveryPostcode } from "@/lib/delivery";
+import { getShopSettings } from "@/lib/shop/server";
 import { CopyButton, ItemRefs, NoteForm, StatusActions } from "@/components/admin/OrderControls";
 
 const fmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
 
 export default async function OrderPage({ params }: PageProps<"/admin/orders/[id]">) {
-  const [o, suppliers] = await Promise.all([adminOrder((await params).id), adminSuppliers()]);
+  const [o, suppliers, shop] = await Promise.all([adminOrder((await params).id), adminSuppliers(), getShopSettings()]);
   const supplierById = new Map(suppliers.map((s) => [s.id, s]));
   const mailReady = mailConfigured();
   const inbox = await orderingInbox();
   const a = o.shippingAddress;
   const addressLines = [a?.name, a?.line1, a?.line2, a?.city, a?.postalCode].filter(Boolean) as string[];
   const addressText = [...addressLines, o.customerPhone].filter(Boolean).join("\n");
-  const postcodeOk = !a?.postalCode || checkDeliveryPostcode(a.postalCode).ok;
+  const postcodeOk = !a?.postalCode || checkDeliveryPostcode(a.postalCode, shop.delivery.area).ok;
   const cost = o.items.every((i) => i.supplierCost != null) ? o.items.reduce((n, i) => n + (i.supplierCost ?? 0) * i.quantity, 0) : null;
   const margin = cost != null ? marginPercent(o.total, cost) : null;
 
@@ -35,7 +36,7 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
 
       {!postcodeOk && (
         <p className="mt-4 rounded-xl border border-danger/30 bg-white p-4 font-semibold text-danger">
-          {a?.postalCode} is outside mainland UK. Check the supplier will deliver there before ordering, or cancel and refund.
+          {a?.postalCode} is outside the area we deliver to. Check the supplier will deliver there before ordering, or cancel and refund.
         </p>
       )}
 
@@ -53,6 +54,9 @@ export default async function OrderPage({ params }: PageProps<"/admin/orders/[id
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold">{i.quantity} × {i.name}</p>
+                      {i.variant && (
+                        <p className="mt-1 inline-block rounded-md bg-notice px-2 py-0.5 text-[14px] font-semibold">Order this option: {i.variant}</p>
+                      )}
                       <p className="tabular text-[14px] text-muted">
                         {formatPrice(i.unitPrice)} each
                         {i.supplierCost != null && <> · cost {formatPrice(i.supplierCost)}</>}

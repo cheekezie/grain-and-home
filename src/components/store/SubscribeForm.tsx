@@ -1,13 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { subscribe, type SubscribeResult } from "@/app/(store)/actions";
-import { SUBSCRIBE_CONSENT, rememberClaimedPromo } from "@/lib/marketing";
+import { rememberClaimedPromo, subscribeConsent } from "@/lib/marketing";
+import { siteConfig } from "@/lib/siteConfig";
+import { useShopWords } from "./ShopWords";
 import { formatLondonDay } from "@/lib/londonDate";
 
 // Email sign-up for offers. If a welcome code is set up in the admin, a
 // new subscriber gets it straight away (and it's prefilled at checkout).
 export default function SubscribeForm({ source, tone = "light", onDone }: { source: string; tone?: "light" | "plain"; onDone?: () => void }) {
+  const words = useShopWords();
   const [email, setEmail] = useState("");
   const [result, setResult] = useState<SubscribeResult | null>(null);
   const [pending, start] = useTransition();
@@ -59,7 +63,7 @@ export default function SubscribeForm({ source, tone = "light", onDone }: { sour
           {pending ? "…" : "Sign up"}
         </button>
       </div>
-      <p className="mt-2 text-[12px] text-muted">{SUBSCRIBE_CONSENT} <a href="/privacy" className="underline">Privacy</a></p>
+      <p className="mt-2 text-[12px] text-muted">{subscribeConsent(siteConfig.name, words.items)} <Link href="/privacy" className="underline">Privacy</Link></p>
       {result && !result.ok && <p role="alert" className="mt-1 text-[14px] font-semibold text-danger">{result.message}</p>}
     </form>
   );

@@ -8,6 +8,7 @@ import { formatLondonDay } from "@/lib/londonDate";
 import { formatPrice } from "@/lib/money";
 import { rememberClaimedPromo } from "@/lib/marketing";
 import SubscribeForm from "./SubscribeForm";
+import { useShopWords } from "./ShopWords";
 
 const SEEN_KEY = "promo-dialog-seen-v1";
 const DELAY_MS = 6000;
@@ -17,6 +18,7 @@ const QUIET_PATHS = ["/basket", "/checkout", "/success", "/returns", "/unsubscri
 // welcome code for email sign-ups. Shown once per promo, after a short
 // delay, never over the cookie banner and never during checkout.
 export default function PromoDialog({ announced, welcome }: { announced: PublicPromo | null; welcome: PublicPromo | null }) {
+  const words = useShopWords();
   const promo = announced ?? welcome;
   const kind = announced ? "claim" : "welcome";
   const path = usePathname();
@@ -50,7 +52,7 @@ export default function PromoDialog({ announced, welcome }: { announced: PublicP
 
   const terms = [
     promo.minSpend && `On orders over ${formatPrice(promo.minSpend)}.`,
-    promo.scope !== "all" && "Applies to selected pieces.",
+    promo.scope !== "all" && `Applies to selected ${words.items}.`,
     promo.expiresAt && `Ends ${formatLondonDay(promo.expiresAt)}.`,
   ].filter(Boolean).join(" ");
 
@@ -88,7 +90,7 @@ export default function PromoDialog({ announced, welcome }: { announced: PublicP
           <>
             <p className="text-[14px] font-semibold text-moss">Join our list</p>
             <h2 id="promo-title" className="mt-1 font-display text-3xl leading-tight">{promo.headline}</h2>
-            <p className="mt-3 text-[15px]">Sign up for offers and new pieces, and we&rsquo;ll give you a code straight away.</p>
+            <p className="mt-3 text-[15px]">Sign up for offers and new {words.items}, and we&rsquo;ll give you a code straight away.</p>
             {terms && <p className="mt-1 text-[14px] text-muted">{terms}</p>}
             <div className="mt-5"><SubscribeForm source="popup" onDone={() => setOpen(false)} /></div>
           </>

@@ -5,16 +5,17 @@ import { STALE_AVAILABILITY_DAYS } from "@/lib/catalogue";
 import { businessDetailsMissing } from "@/lib/siteConfig";
 import { formatPrice } from "@/lib/money";
 import { checkDeliveryPostcode } from "@/lib/delivery";
+import { getShopSettings } from "@/lib/shop/server";
 import { daysSince } from "@/lib/admin/time";
 
 export default async function Overview() {
   await connection();
-  const [counts, products, openOrders] = await Promise.all([orderCounts(), adminProducts(), adminOrders()]);
+  const [counts, products, openOrders, shop] = await Promise.all([orderCounts(), adminProducts(), adminOrders(), getShopSettings()]);
   const days = (iso?: string) => daysSince(iso);
 
   const toPlace = openOrders.filter((o) => o.status === "paid");
   const waitingDispatch = openOrders.filter((o) => o.status === "ordered" && days(o.updatedAt) > 3);
-  const badPostcode = openOrders.filter((o) => ["paid", "ordered"].includes(o.status) && o.shippingAddress?.postalCode && !checkDeliveryPostcode(o.shippingAddress.postalCode).ok);
+  const badPostcode = openOrders.filter((o) => ["paid", "ordered"].includes(o.status) && o.shippingAddress?.postalCode && !checkDeliveryPostcode(o.shippingAddress.postalCode, shop.delivery.area).ok);
   const live = products.filter((p) => p.status === "published");
   const stale = live.filter((p) => days(p.availabilityCheckedAt) > STALE_AVAILABILITY_DAYS);
   const unavailable = live.filter((p) => p.availability === "out_of_stock" || p.availability === "discontinued");
@@ -66,7 +67,7 @@ export default async function Overview() {
           {badPostcode.map((o) => (
             <li key={`pc-${o.id}`}>
               <Link href={`/admin/orders/${o.id}`} className="block p-4 text-danger hover:bg-plaster">
-                <span className="font-semibold">Order #{o.number}</span>: delivery postcode {o.shippingAddress?.postalCode} is outside mainland UK. Check with the supplier or refund.
+                <span className="font-semibold">Order #{o.number}</span>: delivery postcode {o.shippingAddress?.postalCode} is outside the area we deliver to. Check with the supplier or refund.
               </Link>
             </li>
           ))}

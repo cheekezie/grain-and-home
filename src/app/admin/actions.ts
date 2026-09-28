@@ -16,14 +16,21 @@ import {
   startSession,
 } from "@/lib/auth";
 import { connectDB } from "@/lib/db";
-import { AVAILABILITY, CATEGORY_SLUGS, NEXT_STATUSES, ORDER_STATUSES, RETURN_STATUSES, RETURN_STATUS_LABELS, type OrderStatus, type ReturnStatus } from "@/lib/catalogue";
-import { productSchema, promoSchema, roomSchema, supplierSchema, toFormState, type FormState } from "@/lib/admin/schemas";
+import { AVAILABILITY, NEXT_STATUSES, ORDER_STATUSES, RETURN_STATUSES, RETURN_STATUS_LABELS, type OrderStatus, type ReturnStatus } from "@/lib/catalogue";
+import { productSchema, promoSchema, supplierSchema, toFormState, type FormState } from "@/lib/admin/schemas";
+import { categorySchema, detailFieldsSchema, generalSettingsSchema, navSchema } from "@/lib/admin/shopSchemas";
+import { parseDetails } from "@/lib/shop/details";
+import { PRESETS } from "@/lib/shop/presets";
+import { STORE_PAGES } from "@/lib/shop/pages";
+import { getShopSettings } from "@/lib/shop/server";
+import type { ShopSettings } from "@/lib/shop/types";
 import ProductModel from "@/models/Product";
 import SupplierModel from "@/models/Supplier";
 import OrderModel from "@/models/Order";
 import ReturnRequestModel from "@/models/ReturnRequest";
 import PromoCodeModel from "@/models/PromoCode";
-import RoomContentModel from "@/models/RoomContent";
+import CategoryModel from "@/models/Category";
+import ShopSettingsModel from "@/models/ShopSettings";
 import StockAlertModel from "@/models/StockAlert";
 import SupplierEmailModel from "@/models/SupplierEmail";
 import { syncInbox } from "@/lib/mail/inbox";
@@ -78,10 +85,28 @@ export async function saveProduct(id: string | null, _prev: FormState, form: For
   assertId(id);
   const parsed = productSchema.safeParse(readPayload(form));
   if (!parsed.success) return toFormState(parsed.error);
-  const { supplierId, ...data } = parsed.data;
+  const { supplierId, details: rawDetails, ...data } = parsed.data;
   if (supplierId && !isValidObjectId(supplierId)) return { ok: false, message: "Choose a supplier from the list.", errors: { supplierId: "Choose a supplier" } };
 
   await connectDB();
+  const shop = await getShopSettings();
+  const { details, errors: detailErrors } = parseDetails(shop.details, rawDetails, data.status === "published");
+  if (!(await CategoryModel.exists({ slug: data.category }))) detailErrors.category = `Choose a ${shop.words.categoryLabel.toLowerCase()}`;
+  // A pack: its pieces must be ordinary products; its supplier cost is theirs added up.
+  if (data.packSlots.length) {
+    const pieces = await ProductModel.find({ _id: { $in: [...new Set(data.packSlots)] } }).select("name supplierCost packSlots").lean();
+    const byId = new Map(pieces.map((x) => [String(x._id), x]));
+    const bad = data.packSlots.findIndex((s) => !byId.has(s) || s === id || ((byId.get(s)!.packSlots as unknown[] | undefined) ?? []).length);
+    if (bad >= 0) detailErrors[`packSlots.${bad}`] = "Choose a product that isn't a pack";
+    const costs = data.packSlots.map((s) => byId.get(s)?.supplierCost as number | undefined);
+    data.supplierCost = costs.every((c) => typeof c === "number") ? costs.reduce<number>((a, c) => a + (c as number), 0) : undefined;
+    if (data.status === "published" && data.supplierCost === undefined) detailErrors.packSlots = "Every piece needs a supplier cost before the pack can be published";
+    if (data.supplierCost !== undefined && data.price !== undefined && data.supplierCost >= data.price) detailErrors.price = "The price is at or below what the pieces cost";
+  }
+  if (Object.keys(detailErrors).length) {
+    const n = Object.keys(detailErrors).length;
+    return { ok: false, message: `Fix ${n === 1 ? "1 problem" : `${n} problems`} before saving.`, errors: detailErrors };
+  }
   if (await ProductModel.exists({ slug: data.slug, ...(id ? { _id: { $ne: id } } : {}) })) {
     return { ok: false, message: "Another product already uses that web address.", errors: { slug: "Already in use" } };
   }
@@ -90,10 +115,8 @@ export async function saveProduct(id: string | null, _prev: FormState, form: For
   const before = id ? await ProductModel.findById(id).select("availability").lean() : null;
   const checkedNow = !before || before.availability !== data.availability;
 
-  const set: Record<string, unknown> = { ...data, supplier: supplierId || undefined, ...(checkedNow ? { availabilityCheckedAt: new Date() } : {}) };
-  const unset = Object.fromEntries(
-    ["supplierCost", "returnCost", "widthCm", "depthCm", "heightCm", "weightKg", "supplierUrl", "supplier"].filter((k) => set[k] === undefined).map((k) => [k, 1]),
-  );
+  const set: Record<string, unknown> = { ...data, details, supplier: data.packSlots.length ? undefined : supplierId || undefined, ...(checkedNow ? { availabilityCheckedAt: new Date() } : {}) };
+  const unset = Object.fromEntries(["supplierCost", "returnCost", "supplierUrl", "supplier"].filter((k) => set[k] === undefined).map((k) => [k, 1]));
   for (const k of Object.keys(unset)) delete set[k];
 
   let savedId = id;
@@ -103,15 +126,32 @@ export async function saveProduct(id: string | null, _prev: FormState, form: For
   } else {
     savedId = String((await ProductModel.create(set))._id);
   }
+  if (id) await refreshPackCosts(id);
   refreshStore();
   if (!id) redirect(flashUrl("/admin/products", `Product “${parsed.data.name}” created`, `/admin/products/${savedId}`));
   return { ok: true, message: data.status === "published" ? "Saved and live on the shop." : "Saved as a draft." };
+}
+
+/** Packs containing this product: their supplier cost is their pieces' costs added up. */
+async function refreshPackCosts(productId: string) {
+  const packs = await ProductModel.find({ packSlots: productId }).select("packSlots").lean();
+  for (const pack of packs) {
+    const slots = ((pack.packSlots ?? []) as unknown[]).map(String);
+    const costs = new Map((await ProductModel.find({ _id: { $in: slots } }).select("supplierCost").lean()).map((x) => [String(x._id), x.supplierCost as number | undefined]));
+    const each = slots.map((s) => costs.get(s));
+    await ProductModel.updateOne(
+      { _id: pack._id },
+      each.every((c) => typeof c === "number") ? { $set: { supplierCost: each.reduce<number>((a, c) => a + (c as number), 0) } } : { $unset: { supplierCost: 1 } },
+    );
+  }
 }
 
 export async function deleteProduct(id: string): Promise<void> {
   await requireAdmin();
   assertId(id);
   await connectDB();
+  const inPacks = await ProductModel.find({ packSlots: id }).select("name").lean();
+  if (inPacks.length) redirect(flashUrl(`/admin/products/${id}`, `It's in ${inPacks.map((x) => x.name).join(", ")}. Take it out of the pack first`));
   // Orders keep their own snapshot of the item, so history is unaffected.
   await ProductModel.deleteOne({ _id: id });
   refreshStore();
@@ -127,10 +167,18 @@ export async function setProductStatus(id: string, status: "draft" | "published"
     const p = await ProductModel.findById(id).lean();
     if (!p) return { ok: false, message: "Not found." };
     if (p.price == null) return { ok: false, message: "Set a price first." };
-    if (p.supplierCost == null) return { ok: false, message: "Enter the supplier cost first." };
+    const packed = ((p.packSlots as unknown[] | undefined) ?? []).length > 0;
+    if (p.supplierCost == null) return { ok: false, message: packed ? "Every piece needs a supplier cost first." : "Enter the supplier cost first." };
     if (!(p.images as unknown[] | undefined)?.length) return { ok: false, message: "Add a photo first." };
-    if (!p.supplier) return { ok: false, message: "Choose a supplier first." };
+    if (!p.supplier && !packed) return { ok: false, message: "Choose a supplier first." };
     if (p.returnCost == null) return { ok: false, message: "State the return cost first." };
+    const variants = (p.variants ?? []) as { availability?: string }[];
+    if (variants.length && !variants.some((v) => v.availability === "in_stock" || v.availability === "low_stock")) {
+      return { ok: false, message: "Mark at least one combination in stock first." };
+    }
+    const missing = parseDetails((await getShopSettings()).details, p.details ?? {}, true).errors;
+    const first = Object.values(missing)[0];
+    if (first) return { ok: false, message: `${first}.` };
   }
   await ProductModel.updateOne({ _id: id }, { $set: { status } });
   refreshStore();
@@ -278,6 +326,9 @@ export async function savePromo(id: string | null, _prev: FormState, form: FormD
   if (!parsed.success) return toFormState(parsed.error);
   if (parsed.data.products.some((p) => !isValidObjectId(p))) return { ok: false, message: "A chosen product no longer exists." };
   await connectDB();
+  if (parsed.data.categories.length && (await CategoryModel.countDocuments({ slug: { $in: parsed.data.categories } })) !== parsed.data.categories.length) {
+    return { ok: false, message: "A chosen category no longer exists.", errors: { categories: "Choose again" } };
+  }
   if (await PromoCodeModel.exists({ code: parsed.data.code, ...(id ? { _id: { $ne: id } } : {}) })) {
     return { ok: false, message: "That code already exists.", errors: { code: "Already in use" } };
   }
@@ -317,17 +368,136 @@ export async function markStockAlertsNotified(productId: string): Promise<void> 
   revalidatePath("/admin/alerts");
 }
 
-// ------------------------------------------------------------ room pages
+// ------------------------------------------------------------ categories
 
-export async function saveRoom(slug: string, _prev: FormState, form: FormData): Promise<FormState> {
+export async function saveCategory(id: string | null, _prev: FormState, form: FormData): Promise<FormState> {
   await requireAdmin();
-  if (!(CATEGORY_SLUGS as readonly string[]).includes(slug)) throw new Error("Unknown room");
-  const parsed = roomSchema.safeParse(readPayload(form));
+  assertId(id);
+  const parsed = categorySchema.safeParse(readPayload(form));
+  if (!parsed.success) return toFormState(parsed.error);
+  const { image, ...data } = parsed.data;
+  await connectDB();
+  if (await CategoryModel.exists({ slug: data.slug, ...(id ? { _id: { $ne: id } } : {}) })) {
+    return { ok: false, message: "Another category already uses that web address.", errors: { slug: "Already in use" } };
+  }
+  let savedId = id;
+  if (id) {
+    const before = await CategoryModel.findById(id).select("slug").lean();
+    if (!before) return { ok: false, message: "This category no longer exists." };
+    await CategoryModel.updateOne({ _id: id }, image ? { $set: { ...data, image } } : { $set: data, $unset: { image: 1 } });
+    // Products and promo codes refer to the category by its web address.
+    if (before.slug !== data.slug) {
+      await ProductModel.updateMany({ category: before.slug }, { $set: { category: data.slug } });
+      await PromoCodeModel.updateMany({ categories: before.slug }, { $set: { "categories.$": data.slug } });
+    }
+  } else {
+    savedId = String((await CategoryModel.create({ ...data, ...(image && { image }) }))._id);
+  }
+  refreshStore();
+  if (!id) redirect(flashUrl("/admin/categories", `“${data.name}” created`, `/admin/categories/${savedId}`));
+  return { ok: true, message: "Saved" };
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+  await requireAdmin();
+  assertId(id);
+  await connectDB();
+  const c = await CategoryModel.findById(id).select("slug name").lean();
+  if (!c) redirect(flashUrl("/admin/categories", "Already deleted"));
+  const n = await ProductModel.countDocuments({ category: c.slug });
+  if (n) redirect(flashUrl(`/admin/categories/${id}`, `Move its ${n} product${n > 1 ? "s" : ""} to another category first`));
+  await CategoryModel.deleteOne({ _id: id });
+  await PromoCodeModel.updateMany({ categories: c.slug }, { $pull: { categories: c.slug } });
+  refreshStore();
+  redirect(flashUrl("/admin/categories", `“${c.name}” deleted`));
+}
+
+// ------------------------------------------------------------ shop settings
+
+/** Internal links that wouldn't find a page: unknown paths, categories or products. */
+async function brokenLinks(links: { path: string; href: string }[]): Promise<Record<string, string>> {
+  const errors: Record<string, string> = {};
+  for (const { path, href } of links) {
+    if (!href.startsWith("/")) continue; // another site: can't check
+    const clean = href.split(/[?#]/)[0].replace(/\/$/, "") || "/";
+    const cat = clean.match(/^\/shop\/([^/]+)$/);
+    const product = clean.match(/^\/products\/([^/]+)$/);
+    if (cat) {
+      if (!(await CategoryModel.exists({ slug: cat[1] }))) errors[path] = `There's no category at ${clean}. Pick one from the list.`;
+    } else if (product) {
+      if (!(await ProductModel.exists({ slug: product[1], status: "published" }))) errors[path] = `There's no live product at ${clean}.`;
+    } else if (!STORE_PAGES.some((p) => p.href === clean)) {
+      errors[path] = `${clean} isn't a page on this shop. Pick one from the list.`;
+    }
+  }
+  return errors;
+}
+
+async function saveSettingsPart(part: Partial<ShopSettings>): Promise<void> {
+  // Everything except the "configured" flag, which isn't stored.
+  const settings = Object.fromEntries(Object.entries(await getShopSettings()).filter(([k]) => k !== "configured"));
+  await ShopSettingsModel.updateOne({ _id: "shop" }, { $set: { settings: { ...settings, ...part } } }, { upsert: true });
+  refreshStore();
+}
+
+export async function saveGeneralSettings(_prev: FormState, form: FormData): Promise<FormState> {
+  await requireAdmin();
+  const parsed = generalSettingsSchema.safeParse(readPayload(form));
   if (!parsed.success) return toFormState(parsed.error);
   await connectDB();
-  await RoomContentModel.updateOne({ slug }, { $set: { slug, ...parsed.data } }, { upsert: true });
-  refreshStore();
+  const { primary, secondary } = parsed.data.hero;
+  const errors = await brokenLinks([
+    ...(primary ? [{ path: "hero.primary.href", href: primary.href }] : []),
+    ...(secondary ? [{ path: "hero.secondary.href", href: secondary.href }] : []),
+  ]);
+  if (Object.keys(errors).length) return { ok: false, message: "A button goes to a page that doesn't exist.", errors };
+  const { hero, theme, ...rest } = parsed.data;
+  await saveSettingsPart({
+    ...rest,
+    // Only what's set; empty colours and the classic fonts mean the built-in look.
+    theme: Object.fromEntries(Object.entries(theme).filter(([k, v]) => v && !(k === "fonts" && v === "classic"))),
+    hero: { layout: hero.layout, headline: hero.headline, subline: hero.subline, ...(hero.image && { image: hero.image }), ...(hero.primary && { primary: hero.primary }), ...(hero.secondary && { secondary: hero.secondary }) },
+  });
   return { ok: true, message: "Saved" };
+}
+
+export async function saveNavSettings(_prev: FormState, form: FormData): Promise<FormState> {
+  await requireAdmin();
+  const parsed = navSchema.safeParse(readPayload(form));
+  if (!parsed.success) return toFormState(parsed.error);
+  await connectDB();
+  const errors = await brokenLinks(parsed.data.items.flatMap((item, i) => [
+    { path: `items.${i}.href`, href: item.href },
+    ...item.children.map((c, k) => ({ path: `items.${i}.children.${k}.href`, href: c.href })),
+  ]));
+  if (Object.keys(errors).length) return { ok: false, message: "Some links go to pages that don't exist.", errors };
+  await saveSettingsPart({ nav: parsed.data });
+  return { ok: true, message: "Saved" };
+}
+
+export async function saveDetailFields(_prev: FormState, form: FormData): Promise<FormState> {
+  await requireAdmin();
+  const parsed = detailFieldsSchema.safeParse(readPayload(form));
+  if (!parsed.success) return toFormState(parsed.error);
+  await connectDB();
+  // Values stay on products under their key, so a removed detail comes back if re-added with the same key.
+  await saveSettingsPart({ details: parsed.data });
+  return { ok: true, message: "Saved" };
+}
+
+/** A new shop only: fill settings and categories from a preset. */
+export async function applyPreset(key: string): Promise<void> {
+  await requireAdmin();
+  const preset = PRESETS[key];
+  if (!preset) throw new Error("Unknown preset");
+  await connectDB();
+  if ((await ShopSettingsModel.exists({ _id: "shop" })) || (await CategoryModel.exists({}))) {
+    redirect(flashUrl("/admin/settings", "This shop is already set up: edit the settings instead"));
+  }
+  await ShopSettingsModel.create({ _id: "shop", settings: preset.settings });
+  await CategoryModel.insertMany(preset.categories);
+  refreshStore();
+  redirect(flashUrl("/admin/settings", `Set up from the ${preset.label} preset`));
 }
 
 // ------------------------------------------------------------ supplier emails

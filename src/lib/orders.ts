@@ -9,6 +9,104 @@ import { nextSequence } from "@/models/Counter";
 import PromoCodeModel from "@/models/PromoCode";
 import { fetchStripeFee } from "./stripeFees";
 import { confirmNewOrder } from "./mail/orderUpdates";
+import { isPack, packComponentIds, resolveLine, resolvePack } from "./productLines";
+
+/** One line of a new order (see models/Order.ts). */
+export interface OrderLine {
+  product?: unknown;
+  slug?: string;
+  name: string;
+  variant?: string;
+  variantId?: string;
+  packGroup?: string;
+  packName?: string;
+  image?: string;
+  unitPrice: number;
+  listUnitPrice: number;
+  quantity: number;
+  supplier?: unknown;
+  supplierName?: string;
+  supplierSku?: string | null;
+  supplierUrl?: string | null;
+  supplierCost?: number | null;
+}
+
+/** Split `total` pence by `weights`, whole pence, with the remainder on the first share so the parts add up exactly. */
+function share(total: number, weights: number[], i: number): number {
+  const sum = weights.reduce((a, b) => a + b, 0);
+  const parts = weights.map((w) => Math.floor((total * w) / sum));
+  parts[0] += total - parts.reduce((a, b) => a + b, 0);
+  return parts[i];
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * Paid Stripe lines to order lines. Pure (no database or Stripe calls), so
+ * the pack split can be tested. A pack becomes one line per piece.
+ */
+export function stripeLinesToItems(
+  lines: Stripe.LineItem[],
+  byId: Map<string, Record<string, any>>,
+  components: Map<string, Record<string, any>>,
+  supplierName: Map<string, string>,
+): OrderLine[] {
+  return lines.flatMap((l): OrderLine[] => {
+    const stripeProduct = l.price?.product as Stripe.Product | undefined;
+    const p = byId.get(stripeProduct?.metadata?.productId ?? "");
+    const quantity = l.quantity ?? 1;
+    const paid = Math.round((l.amount_total ?? 0) / quantity);
+    const list = Math.round((l.amount_subtotal ?? l.amount_total ?? 0) / quantity);
+
+    // A pack becomes one order line per piece, so each is ordered from its
+    // own supplier with its own reference and tracking. What was paid for the
+    // pack is shared across the pieces in proportion to their own prices.
+    const pack = p && isPack(p) ? resolvePack(p, components, (stripeProduct?.metadata?.packChoices ?? "").split("|")) : null;
+    if (p && pack?.ok) {
+      const packGroup = `${String(p._id)}-${l.id}`;
+      const weights = pack.pieces.map((x) => x.line.price || 1);
+      return pack.pieces.map(({ product: c, line }, i) => ({
+        product: c._id,
+        slug: c.slug,
+        name: `${p.name}: ${pack.labels[i]}`,
+        variant: line.variant,
+        variantId: line.variantId,
+        packGroup,
+        packName: p.name as string,
+        image: (c.images as { url: string }[] | undefined)?.[0]?.url,
+        unitPrice: share(paid, weights, i),
+        listUnitPrice: share(list, weights, i),
+        quantity,
+        supplier: c.supplier ?? undefined,
+        supplierName: c.supplier ? supplierName.get(String(c.supplier)) : undefined,
+        supplierSku: line.supplierSku,
+        supplierUrl: c.supplierUrl,
+        supplierCost: line.supplierCost,
+      }));
+    }
+    // The chosen variant's supplier code and cost (or the product's).
+    const line = p ? resolveLine(p, stripeProduct?.metadata?.variantId || undefined) : null;
+    const v = line?.ok ? line : null;
+    return [{
+      product: p?._id,
+      slug: p?.slug,
+      // Stripe's line name is what the customer saw and paid for.
+      name: stripeProduct?.name ?? v?.name ?? p?.name ?? l.description ?? "Item",
+      variant: v?.variant,
+      variantId: v?.variantId,
+      image: (p?.images as { url: string }[] | undefined)?.[0]?.url,
+      // What the customer actually paid per unit, from Stripe.
+      unitPrice: paid,
+      listUnitPrice: list,
+      quantity,
+      supplier: p?.supplier ?? undefined,
+      supplierName: p?.supplier ? supplierName.get(String(p.supplier)) : undefined,
+      supplierSku: v ? v.supplierSku : p?.supplierSku,
+      supplierUrl: p?.supplierUrl,
+      supplierCost: v ? v.supplierCost : p?.supplierCost,
+    }];
+  });
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /**
  * Turn a paid Checkout session into an Order. Idempotent: Stripe retries
@@ -26,30 +124,12 @@ export async function createOrderFromSession(session: Stripe.Checkout.Session): 
     .filter((id): id is string => !!id);
   const products = await ProductModel.find({ _id: { $in: productIds } }).lean();
   const byId = new Map(products.map((p) => [String(p._id), p]));
-  const supplierIds = [...new Set(products.map((p) => p.supplier).filter(Boolean).map(String))];
+  const components = new Map((await ProductModel.find({ _id: { $in: packComponentIds(products) } }).lean()).map((p) => [String(p._id), p]));
+  const supplierIds = [...new Set([...products, ...components.values()].map((p) => p.supplier).filter(Boolean).map(String))];
   const suppliers = await SupplierModel.find({ _id: { $in: supplierIds } }).select("name").lean();
   const supplierName = new Map(suppliers.map((s) => [String(s._id), s.name as string]));
 
-  const items = lines.data.map((l) => {
-    const stripeProduct = l.price?.product as Stripe.Product | undefined;
-    const p = byId.get(stripeProduct?.metadata?.productId ?? "");
-    const quantity = l.quantity ?? 1;
-    return {
-      product: p?._id,
-      slug: p?.slug,
-      name: p?.name ?? l.description ?? stripeProduct?.name ?? "Item",
-      image: (p?.images as { url: string }[] | undefined)?.[0]?.url,
-      // What the customer actually paid per unit, from Stripe.
-      unitPrice: Math.round((l.amount_total ?? 0) / quantity),
-      listUnitPrice: Math.round((l.amount_subtotal ?? l.amount_total ?? 0) / quantity),
-      quantity,
-      supplier: p?.supplier ?? undefined,
-      supplierName: p?.supplier ? supplierName.get(String(p.supplier)) : undefined,
-      supplierSku: p?.supplierSku,
-      supplierUrl: p?.supplierUrl,
-      supplierCost: p?.supplierCost,
-    };
-  });
+  const items = stripeLinesToItems(lines.data, byId, components, supplierName);
 
   // The address comes from our checkout form (session metadata); older
   // sessions that collected it on Stripe fall back to Stripe's copy.

@@ -12,6 +12,8 @@ import { orderConfirmationEmail, orderUpdateEmail, UPDATE_LABELS, type CustomerU
 import ProductModel from "@/models/Product";
 import { mailConfigured } from "./config";
 import { detectStatus, extractTrackingLinks, findOrderRef, htmlToText, type DetectedStatus } from "./parse";
+import { getShopSettings } from "@/lib/shop/server";
+import { deliveryAreaText } from "@/lib/shop/types";
 
 const OPEN: OrderStatus[] = ["paid", "ordered", "dispatched"];
 
@@ -198,6 +200,33 @@ export async function suppliersWithInbox() {
   return SupplierModel.find({ active: true, whiteLabel: { $ne: true }, senderDomains: { $exists: true, $ne: [] } }).lean();
 }
 
+type EmailLine = { name: string; quantity: number; unitPrice: number; listUnitPrice?: number; packGroup?: string; packName?: string };
+
+/** Pack pieces back into one line per pack: "3-tee pack (Classic tee, M / Black; …)". */
+function groupPacks(items: EmailLine[]): EmailLine[] {
+  const out: EmailLine[] = [];
+  const packs = new Map<string, EmailLine>();
+  for (const i of items) {
+    if (!i.packGroup) {
+      out.push(i);
+      continue;
+    }
+    const piece = i.packName && i.name.startsWith(`${i.packName}: `) ? i.name.slice(i.packName.length + 2) : i.name;
+    const g = packs.get(i.packGroup);
+    if (!g) {
+      const line = { ...i, name: `${i.packName ?? "Pack"} (${piece}` };
+      packs.set(i.packGroup, line);
+      out.push(line);
+    } else {
+      g.name += `; ${piece}`;
+      g.unitPrice += i.unitPrice;
+      if (g.listUnitPrice != null && i.listUnitPrice != null) g.listUnitPrice += i.listUnitPrice;
+    }
+  }
+  for (const g of packs.values()) g.name += ")";
+  return out;
+}
+
 /**
  * Our own order confirmation, sent when payment goes through (and on
  * request from the order page). Delivery time comes from the products;
@@ -207,7 +236,7 @@ export async function sendOrderConfirmation(orderId: string) {
   await connectDB();
   const o = await OrderModel.findById(orderId).lean();
   if (!o) throw new Error("Order not found.");
-  const items = (o.items ?? []) as { product?: unknown; name: string; quantity: number; unitPrice: number; listUnitPrice?: number }[];
+  const items = (o.items ?? []) as { product?: unknown; name: string; quantity: number; unitPrice: number; listUnitPrice?: number; packGroup?: string; packName?: string }[];
   const hasList = items.every((i) => typeof i.listUnitPrice === "number");
   const products = await ProductModel.find({ _id: { $in: items.map((i) => i.product).filter(Boolean) } }).select("deliveryEstimate").lean();
   const estimates = [...new Set(products.map((p) => (p.deliveryEstimate as string) || "").filter(Boolean))];
@@ -217,12 +246,13 @@ export async function sendOrderConfirmation(orderId: string) {
     customerName: (o.customerName as string) || undefined,
     // Full prices on the lines and the discount once, as its own line.
     // (Orders from before list prices were saved show paid prices, no discount line.)
-    items: items.map((i) => ({ name: i.name, quantity: i.quantity, lineTotal: (hasList ? i.listUnitPrice! : i.unitPrice) * i.quantity })),
+    items: groupPacks(items).map((i) => ({ name: i.name, quantity: i.quantity, lineTotal: (hasList ? i.listUnitPrice! : i.unitPrice) * i.quantity })),
     discount: hasList ? ((o.discount as number) ?? 0) : 0,
     promoCode: (o.promoCode as string) || undefined,
     total: o.total as number,
     address: o.shippingAddress as { name?: string; line1?: string; line2?: string; city?: string; postalCode?: string } | undefined,
     deliveryEstimate: longest,
+    deliveryAreaText: deliveryAreaText((await getShopSettings()).delivery.area),
   });
   await sendMail({ to: o.customerEmail as string, ...mail });
   await OrderModel.updateOne(

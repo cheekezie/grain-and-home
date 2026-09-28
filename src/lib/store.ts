@@ -2,12 +2,11 @@ import "server-only";
 import { cache } from "react";
 import { connectDB } from "./db";
 import ProductModel from "@/models/Product";
-import RoomContentModel from "@/models/RoomContent";
 import { toStoreProduct } from "./serialize";
 
 // Storefront reads: published products only, supplier fields stripped.
 const PUBLISHED = { status: "published" } as const;
-// Out-of-stock pieces stay visible (marked unavailable); discontinued ones are hidden.
+// Out-of-stock products stay visible (marked unavailable); discontinued ones are hidden.
 const LISTED = { ...PUBLISHED, availability: { $ne: "discontinued" } };
 
 export const getFeatured = cache(async () => {
@@ -45,13 +44,7 @@ export const getAllListedSlugs = cache(async () => {
   }));
 });
 
-export const getRoomContent = cache(async (slug: string) => {
-  await connectDB();
-  const doc = await RoomContentModel.findOne({ slug }).lean();
-  return { intro: (doc?.intro as string) ?? "", metaDescription: (doc?.metaDescription as string) ?? "", guide: (doc?.guide as string) ?? "" };
-});
-
-/** "You might also like": other pieces from the same room, then elsewhere. */
+/** "You might also like": other products from the same category, then elsewhere. */
 export const getRelated = cache(async (productId: string, category: string, limit = 4) => {
   await connectDB();
   const same = await ProductModel.find({ ...LISTED, category, _id: { $ne: productId }, availability: { $nin: ["out_of_stock", "discontinued"] } })
@@ -65,4 +58,13 @@ export const getRelated = cache(async (productId: string, category: string, limi
         .lean()
     : [];
   return [...same, ...more].map(toStoreProduct);
+});
+
+/** A pack's pieces, in order, with their options: what the pack page offers to choose. Supplier fields stripped. */
+export const getPackPieces = cache(async (slots: string[]) => {
+  if (!slots.length) return [];
+  await connectDB();
+  const docs = await ProductModel.find({ _id: { $in: [...new Set(slots)] } }).lean();
+  const byId = new Map(docs.map((d) => [String(d._id), toStoreProduct(d)]));
+  return slots.map((id) => byId.get(id)).filter((p): p is NonNullable<typeof p> => !!p);
 });

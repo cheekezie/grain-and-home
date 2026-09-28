@@ -10,7 +10,14 @@ const orderItemSchema = new Schema(
   {
     product: { type: Schema.Types.ObjectId, ref: "Product" },
     slug: String,
+    /** Includes the variant, e.g. "Classic tee (M / Black)". */
     name: { type: String, required: true },
+    /** The chosen options, e.g. "M / Black" (products with options only). */
+    variant: String,
+    variantId: String,
+    /** Pieces of one pack line share a packGroup; packName is the pack's name. */
+    packGroup: String,
+    packName: String,
     image: String,
     /** What the customer paid per unit, after any promo discount. */
     unitPrice: { type: Number, required: true },

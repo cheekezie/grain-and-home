@@ -1,22 +1,28 @@
 import type { AdminProduct } from "@/lib/types";
 import type { ProductValue } from "@/components/admin/editors";
 import { penceToPounds } from "@/lib/money";
+import { detailsToForm } from "@/lib/shop/details";
+import type { DetailField } from "@/lib/shop/types";
 
-const n = (x?: number) => (x == null ? "" : String(x));
+export function emptyProduct(fields: DetailField[], category = ""): ProductValue {
+  return {
+    slug: "", name: "", category, summary: "", description: "", images: [],
+    price: "", supplierCost: "", returnCost: "", details: detailsToForm(fields, {}), options: [], variants: [], packSlots: [], deliveryType: "courier", deliveryEstimate: "",
+    availability: "in_stock", supplierId: "", supplierSku: "", supplierUrl: "", internalNotes: "", status: "draft", featured: false, sortOrder: 100,
+  };
+}
 
-export const emptyProduct: ProductValue = {
-  slug: "", name: "", category: "living-room", summary: "", description: "", images: [],
-  price: "", supplierCost: "", returnCost: "", widthCm: "", depthCm: "", heightCm: "", weightKg: "",
-  materials: "", colour: "", assembly: "required", deliveryType: "courier", deliveryEstimate: "",
-  availability: "in_stock", supplierId: "", supplierSku: "", supplierUrl: "", internalNotes: "", status: "draft", featured: false, sortOrder: 100,
-};
-
-export function toProductValue(p: AdminProduct): ProductValue {
+export function toProductValue(p: AdminProduct, fields: DetailField[]): ProductValue {
   return {
     slug: p.slug, name: p.name, category: p.category, summary: p.summary, description: p.description, images: p.images,
     price: penceToPounds(p.price), supplierCost: penceToPounds(p.supplierCost), returnCost: penceToPounds(p.returnCost),
-    widthCm: n(p.widthCm), depthCm: n(p.depthCm), heightCm: n(p.heightCm), weightKg: n(p.weightKg),
-    materials: p.materials, colour: p.colour, assembly: p.assembly, deliveryType: p.deliveryType, deliveryEstimate: p.deliveryEstimate,
+    details: detailsToForm(fields, p.details),
+    packSlots: p.packSlots,
+    options: p.options.map((o) => ({ name: o.name, valuesText: o.values.join(", "), google: o.google ?? "" })),
+    variants: p.variants.map((v) => ({
+      id: v.id, values: v.values, price: penceToPounds(v.price), supplierCost: penceToPounds(v.supplierCost), supplierSku: v.supplierSku ?? "", availability: v.availability,
+    })),
+    deliveryType: p.deliveryType, deliveryEstimate: p.deliveryEstimate,
     availability: p.availability, supplierId: p.supplierId ?? "", supplierSku: p.supplierSku ?? "", supplierUrl: p.supplierUrl ?? "", internalNotes: p.internalNotes,
     status: p.status, featured: p.featured, sortOrder: p.sortOrder,
   };

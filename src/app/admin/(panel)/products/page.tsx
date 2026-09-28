@@ -1,13 +1,14 @@
 import AdminList, { PageHead } from "@/components/admin/AdminList";
 import { PublishToggle } from "@/components/admin/ProductControls";
 import { adminProducts, adminSuppliers } from "@/lib/admin/queries";
-import { AVAILABILITY_LABELS, categoryName } from "@/lib/catalogue";
+import { AVAILABILITY_LABELS } from "@/lib/catalogue";
+import { getCategoryNames } from "@/lib/shop/server";
 import { formatPrice, marginPercent } from "@/lib/money";
 
 export const metadata = { title: "Products" };
 
 export default async function ProductsPage() {
-  const [products, suppliers] = await Promise.all([adminProducts(), adminSuppliers()]);
+  const [products, suppliers, categoryName] = await Promise.all([adminProducts(), adminSuppliers(), getCategoryNames()]);
   const supplierName = new Map(suppliers.map((s) => [s.id, s.name]));
   return (
     <div className="w-full">

@@ -1,21 +1,37 @@
 import type { Metadata } from "next";
 import CheckoutForm from "@/components/store/CheckoutForm";
 import PaymentMethods from "@/components/store/PaymentMethods";
+import { getPackPieces, getProduct } from "@/lib/store";
+import { variantLabel } from "@/lib/variants";
 import { PURCHASABLE } from "@/lib/catalogue";
-import { getProduct } from "@/lib/store";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
 
 // /checkout             → the basket
-// /checkout?buy=slug&qty=n → "Buy now": just that product, basket untouched
+// /checkout?buy=slug&qty=n[&v=variant] → "Buy now": just that product, basket untouched
 export default async function CheckoutPage({ searchParams }: PageProps<"/checkout">) {
-  const { buy, qty } = await searchParams;
+  const { buy, qty, v, p: packChoices } = await searchParams;
   let buyNow = null;
   if (typeof buy === "string" && buy) {
     const p = await getProduct(buy);
-    if (p && (PURCHASABLE as readonly string[]).includes(p.availability)) {
-      const quantity = Math.min(20, Math.max(1, Number(qty) || 1));
+    const quantity = Math.min(20, Math.max(1, Number(qty) || 1));
+    const variant = p?.variants.length ? p.variants.find((x) => x.id === v) : undefined;
+    const ok = (a: string) => (PURCHASABLE as readonly string[]).includes(a);
+    const pieces = p?.packSlots.length ? await getPackPieces(p.packSlots) : [];
+    if (p && pieces.length && ok(p.availability)) {
+      // A pack: the choice for each piece (checked again at payment).
+      const choices = (typeof packChoices === "string" ? packChoices : "").split("|");
+      const labels = pieces.map((x, i) => {
+        const pv = x.variants.find((y) => y.id === choices[i]);
+        return x.variants.length ? (pv && ok(pv.availability) ? `${x.name}, ${variantLabel(pv.values)}` : null) : ok(x.availability) ? x.name : null;
+      });
+      if (labels.every(Boolean)) {
+        buyNow = { productId: p.id, slug: p.slug, name: p.name, price: p.price, image: p.images[0]?.url ?? null, quantity, choices: pieces.map((_, i) => choices[i] ?? ""), pieces: labels as string[] };
+      }
+    } else if (p && ok(p.availability) && !p.variants.length) {
       buyNow = { productId: p.id, slug: p.slug, name: p.name, price: p.price, image: p.images[0]?.url ?? null, quantity };
+    } else if (p && ok(p.availability) && variant && ok(variant.availability)) {
+      buyNow = { productId: p.id, variantId: variant.id, variant: variantLabel(variant.values), slug: p.slug, name: p.name, price: variant.price, image: p.images[0]?.url ?? null, quantity };
     }
   }
   return (

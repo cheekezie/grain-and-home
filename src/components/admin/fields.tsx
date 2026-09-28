@@ -95,20 +95,31 @@ export function SelectField({
   path: string;
   value: string;
   onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  /** Options with a `group` are listed under that heading (<optgroup>), in order of first appearance. */
+  options: { value: string; label: string; group?: string }[];
   hint?: string;
 }) {
   const id = useId();
   const error = useFieldError(path);
+  const groups = [...new Set(options.map((o) => o.group ?? ""))];
+  const render = (o: { value: string; label: string }) => (
+    <option key={o.value} value={o.value}>
+      {o.label}
+    </option>
+  );
   return (
     <div>
       <Label htmlFor={id} label={label} hint={hint} />
       <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={inputClass} aria-invalid={!!error}>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
+        {groups.map((g) =>
+          g ? (
+            <optgroup key={g} label={g}>
+              {options.filter((o) => o.group === g).map(render)}
+            </optgroup>
+          ) : (
+            options.filter((o) => !o.group).map(render)
+          ),
+        )}
       </select>
       <FieldError id={`${id}-err`} error={error} />
     </div>

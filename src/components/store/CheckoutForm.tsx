@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useCart } from "@/lib/CartContext";
+import { lineKey, useCart } from "@/lib/CartContext";
 import { formatPrice } from "@/lib/money";
-import { checkDeliveryPostcode } from "@/lib/delivery";
+import { checkDeliveryPostcode, postcodeMessage } from "@/lib/delivery";
+import { deliveryAreaText } from "@/lib/shop/types";
+import { useShopWords } from "./ShopWords";
 import type { CartItem } from "@/lib/types";
 import QuantityStepper from "./QuantityStepper";
 import { forgetClaimedPromo, readClaimedPromo } from "@/lib/marketing";
@@ -15,7 +17,7 @@ type Address = { line1: string; line2: string; city: string; postcode: string };
 type AppliedPromo = { code: string; headline: string; discount: number };
 type PromoCheck = { ok: true; code: string; headline: string; discount: number } | { ok: false; message: string };
 
-async function checkPromo(code: string, email: string, items: { productId: string; quantity: number }[]): Promise<PromoCheck> {
+async function checkPromo(code: string, email: string, items: { productId: string; variantId?: string; choices?: string[]; quantity: number }[]): Promise<PromoCheck> {
   try {
     const res = await fetch("/api/promo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, email, items }) });
     return (await res.json()) as PromoCheck;
@@ -56,6 +58,8 @@ export default function CheckoutForm({
   paymentMethods: React.ReactNode;
 }) {
   const cart = useCart();
+  const { deliveryArea, browse } = useShopWords();
+  const areaText = deliveryAreaText(deliveryArea);
   const [buyQty, setBuyQty] = useState(buyNow?.quantity ?? 1);
   const [d, setD] = useState<Delivery>(() => (typeof window === "undefined" ? EMPTY : loadSaved()));
   const [lookup, setLookup] = useState<Lookup | null>(null);
@@ -74,7 +78,7 @@ export default function CheckoutForm({
 
   const items = buyNow ? [{ ...buyNow, quantity: buyQty }] : cart.items;
   const subtotal = items.reduce((n, i) => n + i.price * i.quantity, 0);
-  const lines = items.map((i) => ({ productId: i.productId, quantity: i.quantity }));
+  const lines = items.map((i) => ({ productId: i.productId, variantId: i.variantId, choices: i.choices, quantity: i.quantity }));
   const linesKey = JSON.stringify(lines);
   const discount = promo?.discount ?? 0;
 
@@ -120,7 +124,7 @@ export default function CheckoutForm({
     });
 
   const findAddress = async () => {
-    const pc = checkDeliveryPostcode(d.postcode);
+    const pc = checkDeliveryPostcode(d.postcode, deliveryArea);
     if (!pc.ok) {
       setLookup({ ok: false, reason: pc.reason, postcode: pc.postcode });
       return;
@@ -168,8 +172,8 @@ export default function CheckoutForm({
 
   const pay = async () => {
     setError(null);
-    const pc = checkDeliveryPostcode(d.postcode);
-    if (!pc.ok) return setError(pc.reason === "invalid" ? "Enter a valid UK postcode." : `Sorry, we can't deliver to ${pc.postcode}. We deliver to mainland UK only.`);
+    const pc = checkDeliveryPostcode(d.postcode, deliveryArea);
+    if (!pc.ok) return setError(postcodeMessage(pc, deliveryArea));
     if (!d.line1.trim() || !d.city.trim()) {
       return setError("Enter your full delivery address.");
     }
@@ -180,7 +184,7 @@ export default function CheckoutForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: buyNow ? "buy_now" : "basket",
-          items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+          items: items.map((i) => ({ productId: i.productId, variantId: i.variantId, choices: i.choices, quantity: i.quantity })),
           delivery: { ...d, postcode: pc.postcode },
           promoCode: promo?.code,
         }),
@@ -210,7 +214,7 @@ export default function CheckoutForm({
     return (
       <div className="mt-8 rounded-2xl bg-plaster p-8">
         <p className="text-lg">{buyRequested ? "That item isn't available to buy right now." : "Your basket is empty."}</p>
-        <Link href="/" className="mt-3 inline-block font-semibold text-moss underline underline-offset-2">Browse furniture</Link>
+        <Link href="/" className="mt-3 inline-block font-semibold text-moss underline underline-offset-2">{browse}</Link>
       </div>
     );
   }
@@ -220,7 +224,7 @@ export default function CheckoutForm({
       ? lookup.reason === "invalid"
         ? "Enter a valid UK postcode, e.g. SW1A 1AA."
         : lookup.reason === "excluded"
-          ? `Sorry, we can't deliver to ${lookup.postcode}. We deliver to mainland UK only.`
+          ? postcodeMessage({ ok: false, reason: "excluded", postcode: lookup.postcode }, deliveryArea)
           : lookup.reason === "not_found"
             ? `We couldn't find ${lookup.postcode}. Check it, or carry on and type your address.`
             : (lookup.message ?? "Postcode check isn't available right now. Carry on and type your address.")
@@ -252,7 +256,7 @@ export default function CheckoutForm({
         <fieldset className="space-y-4">
           <legend className="text-xl font-semibold">Delivery address</legend>
           <p className="text-[14px] text-muted">
-            We deliver free to mainland UK addresses. Your browser can fill this in for you: tap a box and choose a saved address.
+            We deliver free to {areaText} addresses. Your browser can fill this in for you: tap a box and choose a saved address.
           </p>
           <label className="block text-[15px] font-semibold">
             Full name
@@ -269,7 +273,7 @@ export default function CheckoutForm({
                 value={d.postcode}
                 onChange={(e) => { set("postcode", e.target.value.toUpperCase()); setLookup(null); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); findAddress(); } }}
-                onBlur={() => { if (!lookup && checkDeliveryPostcode(d.postcode).ok) findAddress(); }}
+                onBlur={() => { if (!lookup && checkDeliveryPostcode(d.postcode, deliveryArea).ok) findAddress(); }}
                 placeholder="e.g. SW1A 1AA"
                 className="w-full max-w-[12rem] rounded-lg border border-line bg-white px-3 py-2.5 uppercase"
               />
@@ -340,7 +344,7 @@ export default function CheckoutForm({
         <h2 className="text-lg font-semibold">{buyNow ? "Buying now" : "Your order"}</h2>
         <ul className="mt-3 divide-y divide-line">
           {items.map((i) => (
-            <li key={i.productId} className="flex gap-3 py-3">
+            <li key={lineKey(i)} className="flex gap-3 py-3">
               <span className="relative block size-16 shrink-0 overflow-hidden rounded-lg bg-white">
                 {i.image && (
                   <ShopImage src={i.image} alt="" sizes="64px" className="object-contain p-1.5" />
@@ -348,6 +352,12 @@ export default function CheckoutForm({
               </span>
               <div className="min-w-0 flex-1 text-[15px]">
                 <p className="font-medium">{i.name}</p>
+                {i.variant && <p>{i.variant}</p>}
+                {i.pieces && (
+                  <ul className="text-[14px] text-muted">
+                    {i.pieces.map((x, n) => <li key={n}>{x}</li>)}
+                  </ul>
+                )}
                 {buyNow ? (
                   <div className="mt-1.5"><QuantityStepper size="sm" value={buyQty} onChange={setBuyQty} label={`Quantity of ${i.name}`} /></div>
                 ) : (
@@ -367,7 +377,7 @@ export default function CheckoutForm({
               <dd>−{formatPrice(discount)}</dd>
             </div>
           )}
-          <div className="flex justify-between"><dt>Delivery (mainland UK)</dt><dd>Free</dd></div>
+          <div className="flex justify-between"><dt>Delivery ({areaText})</dt><dd>Free</dd></div>
           <div className="flex justify-between border-t border-line pt-2 text-lg font-semibold"><dt>Total</dt><dd>{formatPrice(subtotal - discount)}</dd></div>
         </dl>
 

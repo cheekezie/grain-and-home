@@ -77,12 +77,16 @@ will really offer.
 - Register grainandhome.co.uk (and .com) and set up the support@grainandhome.co.uk mailbox: return replies are sent from it.
 - Add return instructions to each supplier (Admin → Suppliers).
 - Have the Terms, Returns, Delivery and Privacy pages reviewed.
-- Check the mainland-UK postcode exclusions in `src/lib/delivery.ts` match
+- Check the delivery area (Admin → Shop settings → Delivery) and, for
+  mainland UK, the postcode exclusions in `src/lib/delivery.ts`, match
   your suppliers' delivery areas.
 - Use supplier photos only where the supplier allows resellers to.
 - Switch Stripe to live keys and a live webhook; run `npm run stripe:check`.
-- Choose the name: set `NEXT_PUBLIC_STORE_NAME` (everything reads from
-  `src/lib/siteConfig.ts`).
+- Name and business details: `NEXT_PUBLIC_STORE_NAME` and the other
+  `NEXT_PUBLIC_*` values (`src/lib/siteConfig.ts`). Everything else the shop
+  says is in Admin → Shop settings.
+- On the live database, run `npx tsx scripts/shop-setup.ts --preset=furniture`
+  once (or pick the preset in Admin → Shop settings).
 
 ## Products imported 26 Sep 2026
 
@@ -118,8 +122,8 @@ canonical URLs, share previews (Open Graph / Twitter cards), structured
 data (Product with price, stock, free delivery, the postcodes we don't
 deliver to, 14-day returns; breadcrumbs; the shop itself), optimised
 product photos (resized, AVIF/WebP), "You might also like" links, and
-editable room pages (Admin → Room pages: intro, Google description,
-buying guide).
+editable category pages (Admin → Categories: photo, intro, Google title
+and description, buying guide).
 
 After going live on the real domain:
 1. **Google Search Console** (free): add the domain, submit
@@ -129,7 +133,7 @@ After going live on the real domain:
    (updates hourly), and enter the returns policy (14 days) and free
    mainland-UK shipping in the Merchant Center settings.
 3. Test pages with Google's Rich Results Test.
-4. Write the room buying guides in the admin.
+4. Write the category buying guides in the admin.
 
 Products are listed with the shop's name as the brand and no barcodes
 (`identifier_exists: no`). If Merchant Center flags a listing's brand,
@@ -183,3 +187,26 @@ Setup (two Zoho services: ZeptoMail sends, Zoho Mail receives):
 
 Only emails from suppliers' domains are stored; the rest of the inbox is
 left untouched.
+
+## Running several shops from this code
+
+Each shop is its own deployment of this same repository: its own Vercel
+project, database, Stripe account, email sender and domain. A push to
+`main` updates every shop.
+
+What differs per shop lives in two places:
+- **Environment variables** (per Vercel project): name, business details,
+  database, Stripe keys, ZeptoMail, admin code, secrets. See `.env.example`.
+- **Admin → Shop settings** (per database): tagline, hero layout and
+  wording, promises, what products are called, delivery area, navigation
+  (automatic from categories, or your own with dropdowns), product details
+  (e.g. dimensions for furniture, fabric and fit for clothing, ingredients
+  for beauty) and the Google category. **Admin → Categories** holds the
+  categories with their photos, intros and buying guides.
+
+A new shop starts empty: open Admin → Shop settings and pick a preset
+(Furniture, Clothing, Beauty or Blank), or run
+`npx tsx scripts/shop-setup.ts --preset=clothing`. Presets add no photos.
+
+Only the real domain (`NEXT_PUBLIC_SITE_URL`) is indexed by search
+engines: the `*.vercel.app` address and preview builds send `noindex`.

@@ -1,6 +1,6 @@
 import { Schema, type InferSchemaType } from "mongoose";
 import { defineModel } from "./define";
-import { AVAILABILITY, CATEGORY_SLUGS, DELIVERY_TYPES } from "@/lib/catalogue";
+import { AVAILABILITY, DELIVERY_TYPES } from "@/lib/catalogue";
 
 const imageSchema = new Schema({ url: { type: String, required: true, trim: true }, alt: { type: String, default: "", trim: true } }, { _id: false });
 
@@ -11,7 +11,8 @@ const productSchema = new Schema(
   {
     slug: { type: String, required: true, unique: true, trim: true, lowercase: true },
     name: { type: String, required: true, trim: true },
-    category: { type: String, enum: CATEGORY_SLUGS, required: true },
+    /** A Category slug (checked against the database in the admin). */
+    category: { type: String, required: true },
     summary: { type: String, required: true, trim: true },
     description: { type: String, required: true },
     images: { type: [imageSchema], default: [] },
@@ -21,13 +22,40 @@ const productSchema = new Schema(
     price: { type: Number, min: 0 },
 
     // Specification, as stated by the supplier.
-    widthCm: Number,
-    depthCm: Number,
-    heightCm: Number,
-    weightKg: Number,
-    materials: { type: String, default: "", trim: true },
-    colour: { type: String, default: "", trim: true },
-    assembly: { type: String, enum: ["none", "required", "partial"], default: "required" },
+    /** Choices the customer makes (Size, Colour…). None: the product sells as itself. */
+    options: {
+      type: [new Schema({ name: { type: String, required: true, trim: true }, values: [{ type: String, trim: true }], google: String }, { _id: false })],
+      default: [],
+    },
+    /**
+     * One per combination of option values. price/supplierCost/supplierSku
+     * empty = the product's own. Ids come from the values (lib/variants.ts)
+     * and are kept in baskets and orders.
+     */
+    variants: {
+      type: [
+        new Schema(
+          {
+            id: { type: String, required: true },
+            values: [String],
+            price: { type: Number, min: 0 },
+            supplierCost: { type: Number, min: 0 },
+            supplierSku: { type: String, trim: true },
+            availability: { type: String, enum: AVAILABILITY, default: "in_stock" },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
+    /**
+     * A pack: the products it contains, one entry per piece (the same product
+     * can appear more than once). The customer picks each piece's options.
+     * Empty: an ordinary product.
+     */
+    packSlots: { type: [{ type: Schema.Types.ObjectId, ref: "Product" }], default: [] },
+    /** The shop's own product details (Admin → Shop settings → Product details), by field key. */
+    details: { type: Schema.Types.Mixed, default: {} },
 
     // Delivery and returns: shown on the product page. UK law requires the
     // cost of returning goods that can't go by post to be stated up front.

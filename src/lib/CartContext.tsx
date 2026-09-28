@@ -11,6 +11,10 @@ import type { CartItem } from "./types";
 
 const STORAGE_KEY = "basket-v2";
 
+/** One basket line per product, or per product + chosen options. */
+export const lineKey = (i: { productId: string; variantId?: string; choices?: string[] }) =>
+  i.choices?.length ? `${i.productId}:${i.choices.join("|")}` : i.variantId ? `${i.productId}:${i.variantId}` : i.productId;
+
 type Listener = () => void;
 let listeners: Listener[] = [];
 let cache: CartItem[] | null = null;
@@ -63,8 +67,9 @@ function writeCart(items: CartItem[]) {
 type CartContextValue = {
   items: CartItem[];
   addItem: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
-  removeItem: (productId: string) => void;
-  setQuantity: (productId: string, quantity: number) => void;
+  /** By lineKey(item). */
+  removeItem: (key: string) => void;
+  setQuantity: (key: string, quantity: number) => void;
   clear: () => void;
   subtotal: number;
   count: number;
@@ -82,10 +87,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem: CartContextValue["addItem"] = (item, quantity = 1) => {
     const current = getSnapshot();
-    const existing = current.find((i) => i.productId === item.productId);
+    const key = lineKey(item);
+    const existing = current.find((i) => lineKey(i) === key);
     const next = existing
       ? current.map((i) =>
-          i.productId === item.productId
+          lineKey(i) === key
             ? { ...i, quantity: Math.min(i.quantity + quantity, 20) }
             : i
         )
@@ -93,16 +99,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     writeCart(next);
   };
 
-  const removeItem = (productId: string) => {
-    writeCart(getSnapshot().filter((i) => i.productId !== productId));
+  const removeItem = (key: string) => {
+    writeCart(getSnapshot().filter((i) => lineKey(i) !== key));
   };
 
-  const setQuantity = (productId: string, quantity: number) => {
+  const setQuantity = (key: string, quantity: number) => {
     const current = getSnapshot();
     writeCart(
       quantity <= 0
-        ? current.filter((i) => i.productId !== productId)
-        : current.map((i) => (i.productId === productId ? { ...i, quantity } : i))
+        ? current.filter((i) => lineKey(i) !== key)
+        : current.map((i) => (lineKey(i) === key ? { ...i, quantity } : i))
     );
   };
 

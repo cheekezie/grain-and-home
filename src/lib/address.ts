@@ -1,5 +1,6 @@
 import "server-only";
 import { checkDeliveryPostcode } from "./delivery";
+import type { DeliveryArea } from "./shop/types";
 
 // Postcode lookup for the checkout address form.
 //
@@ -39,8 +40,8 @@ async function getJson(url: string) {
   return { status: res.status, body: (await res.json().catch(() => null)) as Record<string, unknown> | null };
 }
 
-export async function lookupPostcode(input: string): Promise<LookupResult> {
-  const check = checkDeliveryPostcode(input);
+export async function lookupPostcode(input: string, deliveryArea: DeliveryArea): Promise<LookupResult> {
+  const check = checkDeliveryPostcode(input, deliveryArea);
   if (!check.ok) return check;
   const { postcode } = check;
   const compact = postcode.replace(" ", "");

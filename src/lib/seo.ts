@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import type { StoreProduct } from "./types";
 import { siteConfig } from "./siteConfig";
-import { categoryName } from "./catalogue";
 import { excludedPostcodePrefixes } from "./delivery";
-import { unsplash } from "./roomPhotos";
+import { googleDetails } from "./shop/details";
+import type { DetailField, DeliveryArea } from "./shop/types";
 
 // Search-engine helpers: absolute URLs, Open Graph/Twitter cards, and
 // schema.org structured data. Everything states only what's true on the
@@ -11,12 +11,9 @@ import { unsplash } from "./roomPhotos";
 
 export const absoluteUrl = (path: string) => new URL(path, siteConfig.url).toString();
 
-/** Default share image: the home page room photo, cropped to 1200×630. */
-export const DEFAULT_SHARE_IMAGE = `${unsplash("photo-1631510390389-c1e4fb20ff31", 1200)}&h=630`;
-
-/** Open Graph + Twitter card for a page (child metadata replaces the parent's openGraph, so this sets it all). */
+/** Open Graph + Twitter card for a page (child metadata replaces the parent's openGraph, so this sets it all). Pass the hero's share image when a page has no photo of its own. */
 export function shareMeta({ title, description, path, image, type = "website" }: { title: string; description: string; path: string; image?: string; type?: "website" | "article" }): Pick<Metadata, "openGraph" | "twitter" | "alternates"> {
-  const images = [image ?? DEFAULT_SHARE_IMAGE];
+  const images = image ? [image] : undefined;
   return {
     alternates: { canonical: path },
     openGraph: { type, siteName: siteConfig.name, locale: "en_GB", url: path, title, description, images },
@@ -43,7 +40,8 @@ const AVAILABILITY: Record<string, string> = {
   discontinued: "https://schema.org/Discontinued",
 };
 
-export function productJsonLd(p: StoreProduct) {
+export function productJsonLd(p: StoreProduct, shop: { categoryName: string; deliveryArea: DeliveryArea; details: DetailField[] }) {
+  const g = googleDetails(shop.details, p.details);
   const url = absoluteUrl(`/products/${p.slug}`);
   const days = parseDeliveryDays(p.deliveryEstimate);
   const shipping = [
@@ -60,10 +58,10 @@ export function productJsonLd(p: StoreProduct) {
       }),
     },
     {
-      // Mainland UK only: say plainly where we don't deliver.
+      // Say plainly where we don't deliver.
       "@type": "OfferShippingDetails",
       doesNotShip: true,
-      shippingDestination: { "@type": "DefinedRegion", addressCountry: "GB", postalCodePrefix: excludedPostcodePrefixes() },
+      shippingDestination: { "@type": "DefinedRegion", addressCountry: "GB", postalCodePrefix: excludedPostcodePrefixes(shop.deliveryArea) },
     },
   ];
   const returnPolicy = {
@@ -87,18 +85,22 @@ export function productJsonLd(p: StoreProduct) {
     sku: p.slug,
     image: p.images.map((i) => i.url),
     brand: { "@type": "Brand", name: siteConfig.name },
-    category: categoryName(p.category),
-    ...(p.materials && { material: p.materials }),
-    ...(p.colour && { color: p.colour }),
-    ...(p.widthCm && { width: cm(p.widthCm) }),
-    ...(p.depthCm && { depth: cm(p.depthCm) }),
-    ...(p.heightCm && { height: cm(p.heightCm) }),
-    ...(p.weightKg && { weight: { "@type": "QuantitativeValue", value: p.weightKg, unitCode: "KGM" } }),
+    category: shop.categoryName,
+    ...(g.material && { material: g.material }),
+    ...(g.color && { color: g.color }),
+    ...(g.size && { size: g.size }),
+    ...(g.pattern && { pattern: g.pattern }),
+    ...(g.gender && { audience: { "@type": "PeopleAudience", suggestedGender: g.gender } }),
+    ...(g.dims?.w && { width: cm(g.dims.w) }),
+    ...(g.dims?.d && { depth: cm(g.dims.d) }),
+    ...(g.dims?.h && { height: cm(g.dims.h) }),
+    ...(g.weightKg && { weight: { "@type": "QuantitativeValue", value: g.weightKg, unitCode: "KGM" } }),
     offers: {
       "@type": "Offer",
       url,
       priceCurrency: "GBP",
-      price: money(p.price),
+      // With options the lowest price is the "from" price; each option's own price is in the Google feed.
+      price: money(p.variants.length ? Math.min(...p.variants.map((v) => v.price)) : p.price),
       availability: AVAILABILITY[p.availability] ?? AVAILABILITY.in_stock,
       itemCondition: "https://schema.org/NewCondition",
       seller: { "@type": "Organization", name: siteConfig.name },
@@ -116,7 +118,7 @@ export function breadcrumbJsonLd(items: { name: string; path: string }[]) {
   };
 }
 
-export function organisationJsonLd() {
+export function organisationJsonLd(tagline: string) {
   const b = siteConfig.business;
   return [
     {
@@ -124,7 +126,7 @@ export function organisationJsonLd() {
       "@type": "OnlineStore",
       name: siteConfig.name,
       url: absoluteUrl("/"),
-      description: siteConfig.tagline,
+      description: tagline,
       ...(b.legalName && b.legalName !== siteConfig.name && { legalName: b.legalName }),
       ...(b.email && { email: b.email, contactPoint: { "@type": "ContactPoint", contactType: "customer service", email: b.email, areaServed: "GB", availableLanguage: "English" } }),
     },

@@ -16,6 +16,9 @@
   --moss-soft: #e9efe9;
   --danger: #a8341f;
   --notice: #fbf5e6;
+  /* The shop's font pair (Shop settings → Look overrides these on <html>). */
+  --display-font: var(--font-young-serif);
+  --body-font: var(--font-figtree);
 }
 
 @theme inline {
@@ -33,8 +36,8 @@
   --color-accent-strong: var(--moss-deep);
   --color-accent-soft: var(--moss-soft);
   --color-mist: var(--plaster);
-  --font-display: var(--font-young-serif), Georgia, serif;
-  --font-sans: var(--font-figtree), system-ui, sans-serif;
+  --font-display: var(--display-font), Georgia, serif;
+  --font-sans: var(--body-font), system-ui, sans-serif;
   --shadow-lift: 0 14px 34px -14px rgb(30 28 26 / 0.3);
 }
 
@@ -44,7 +47,7 @@ body {
   color: var(--ink);
 }
 body {
-  font-family: var(--font-sans);
+  font-family: var(--body-font), system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
