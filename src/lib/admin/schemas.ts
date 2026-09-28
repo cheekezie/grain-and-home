@@ -57,6 +57,12 @@ export const productSchema = z
     details: z.record(z.string(), z.unknown()).default({}),
     /** A pack: product ids of its pieces, in order (repeats allowed). */
     packSlots: z.array(z.string().regex(/^[a-f0-9]{24}$/, "Choose a product")).max(12, "Up to 12 pieces in a pack").default([]),
+    /** Per piece: options we fix, e.g. { Colour: "Black" }; "" / missing = customer chooses. */
+    packPresets: z
+      .array(z.record(z.string().max(30), z.string().max(40)))
+      .max(12)
+      .default([])
+      .transform((list) => list.map((r) => Object.fromEntries(Object.entries(r).filter(([, v]) => v)))),
     options: z
       .array(
         z.object({

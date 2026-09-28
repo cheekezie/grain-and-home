@@ -39,7 +39,13 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
   const inStock = (x: { availability: (typeof PURCHASABLE)[number] | string; variants: { availability: string }[] }) =>
     (PURCHASABLE as readonly string[]).includes(x.availability) && (!x.variants.length || x.variants.some((v) => (PURCHASABLE as readonly string[]).includes(v.availability)));
   const pieces = await getPackPieces(p.packSlots);
-  const purchasable = inStock(p) && pieces.every(inStock);
+  // A pack piece counts as in stock if some in-stock combination keeps the options we fixed for it.
+  const pieceInStock = (x: (typeof pieces)[number], i: number) => {
+    const preset = p.packPresets[i] ?? {};
+    const fits = (values: string[]) => x.options.every((o, k) => !preset[o.name] || values[k] === preset[o.name]);
+    return (PURCHASABLE as readonly string[]).includes(x.availability) && (!x.variants.length || x.variants.some((v) => (PURCHASABLE as readonly string[]).includes(v.availability) && fits(v.values)));
+  };
+  const purchasable = inStock(p) && pieces.every(pieceInStock);
   const range = priceRange(p);
   const [promo, related, shop, categoryName] = await Promise.all([getAnnouncedPromo(), getRelated(p.id, p.category), getShopSettings(), getCategoryNames()]);
   const area = deliveryAreaName(shop.delivery.area);
@@ -101,7 +107,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
               name={p.name}
               price={p.price}
               image={p.images[0]?.url ?? null}
-              pieces={pieces.map((x) => ({ name: x.name, image: x.images[0]?.url ?? null, availability: x.availability, options: x.options, variants: x.variants }))}
+              pieces={pieces.map((x, i) => ({ name: x.name, image: x.images[0]?.url ?? null, availability: x.availability, options: x.options, variants: x.variants, preset: p.packPresets[i] ?? {} }))}
             />
           ) : purchasable && !pieces.length ? (
           <AddToCartForm

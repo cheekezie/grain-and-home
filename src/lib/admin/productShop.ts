@@ -26,6 +26,7 @@ export async function productEditorShop(exclude?: string): Promise<ProductEditor
         label: `${x.name as string}${x.status === "published" ? "" : " (draft)"}`,
         cost: typeof x.supplierCost === "number" ? x.supplierCost : undefined,
         hasOptions: ((x.options as unknown[] | undefined) ?? []).length > 0,
+        options: ((x.options as { name: string; values: string[] }[] | undefined) ?? []).map((o) => ({ name: o.name, values: [...o.values] })),
       })),
   };
 }

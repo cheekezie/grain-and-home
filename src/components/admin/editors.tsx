@@ -33,6 +33,8 @@ export interface ProductValue {
   variants: VariantFormValue[];
   /** A pack: the product id of each piece. */
   packSlots: string[];
+  /** Per piece: options we fix (e.g. { Colour: "Black" }). */
+  packPresets: Record<string, string>[];
   deliveryType: "courier" | "two_person";
   deliveryEstimate: string;
   availability: string;
@@ -53,7 +55,7 @@ export interface ProductEditorShop {
   twoPerson: boolean;
   areaText: string;
   /** Products that can go in a pack (not packs themselves). Cost in pence. */
-  packProducts: { value: string; label: string; cost?: number; hasOptions: boolean }[];
+  packProducts: { value: string; label: string; cost?: number; hasOptions: boolean; options: { name: string; values: string[] }[] }[];
 }
 
 export function ProductEditor({
@@ -131,7 +133,13 @@ export function ProductEditor({
       </Section>
 
       <Section title="Pack" hint="A set of your products sold together at one price, e.g. 3 T-shirts. Customers choose the options (size, colour) for each piece.">
-        <PackPieces value={v.packSlots} onChange={(s) => set("packSlots", s)} products={shop.packProducts} price={v.price} />
+        <PackPieces
+          value={v.packSlots}
+          presets={v.packPresets}
+          onChange={(slots, presets) => setV((p) => ({ ...p, packSlots: slots, packPresets: presets }))}
+          products={shop.packProducts}
+          price={v.price}
+        />
       </Section>
 
       {v.packSlots.length === 0 && (
@@ -196,46 +204,85 @@ export function ProductEditor({
   );
 }
 
-function PackPieces({ value, onChange, products, price }: { value: string[]; onChange: (v: string[]) => void; products: ProductEditorShop["packProducts"]; price: string }) {
+function PackPieces({
+  value,
+  presets,
+  onChange,
+  products,
+  price,
+}: {
+  value: string[];
+  presets: Record<string, string>[];
+  onChange: (slots: string[], presets: Record<string, string>[]) => void;
+  products: ProductEditorShop["packProducts"];
+  price: string;
+}) {
   const byId = new Map(products.map((p) => [p.value, p]));
   const costs = value.map((id) => byId.get(id)?.cost);
   const known = costs.every((c) => typeof c === "number");
   const total = known ? costs.reduce<number>((a, c) => a + (c as number), 0) : null;
   const pricePence = Math.round(parseFloat(price.replace(/[£,\s]/g, "")) * 100);
+  const presetAt = (i: number) => presets[i] ?? {};
+  const update = (slots: string[], next: Record<string, string>[]) => onChange(slots, slots.map((_, i) => next[i] ?? {}));
   const move = (i: number, d: number) => {
-    const next = [...value];
-    [next[i], next[i + d]] = [next[i + d], next[i]];
-    onChange(next);
+    const s = [...value];
+    const p = value.map((_, k) => presetAt(k));
+    [s[i], s[i + d]] = [s[i + d], s[i]];
+    [p[i], p[i + d]] = [p[i + d], p[i]];
+    update(s, p);
   };
   if (!value.length) {
     return (
-      <button type="button" onClick={() => onChange(["", ""])} className="self-start font-semibold underline">
+      <button type="button" onClick={() => onChange(["", ""], [{}, {}])} className="self-start font-semibold underline">
         Make this a pack
       </button>
     );
   }
   return (
     <>
-      <ol className="space-y-3">
-        {value.map((id, i) => (
-          <li key={i} className="grid items-end gap-3 sm:grid-cols-[1fr_10rem]">
-            <SelectField
-              label={`Piece ${i + 1}`}
-              path={`packSlots.${i}`}
-              value={id}
-              onChange={(n) => onChange(value.map((x, j) => (j === i ? n : x)))}
-              options={[...(id ? [] : [{ value: "", label: "Choose a product…" }]), ...products.map((p) => ({ value: p.value, label: `${p.label}${p.hasOptions ? " · customer picks options" : ""}` }))]}
-            />
-            <div className="mb-3 flex gap-3 text-[14px] font-semibold">
-              {i > 0 && <button type="button" onClick={() => move(i, -1)} className="underline">Up</button>}
-              {i < value.length - 1 && <button type="button" onClick={() => move(i, 1)} className="underline">Down</button>}
-              <button type="button" onClick={() => onChange(value.filter((_, j) => j !== i))} className="text-danger underline">Remove</button>
-            </div>
-          </li>
-        ))}
+      <ol className="space-y-4">
+        {value.map((id, i) => {
+          const product = byId.get(id);
+          return (
+            <li key={i} className="rounded-xl border border-line p-4">
+              <div className="grid items-end gap-3 sm:grid-cols-[1fr_10rem]">
+                <SelectField
+                  label={`Piece ${i + 1}`}
+                  path={`packSlots.${i}`}
+                  value={id}
+                  // A different product has different options: start its presets afresh.
+                  onChange={(n) => update(value.map((x, j) => (j === i ? n : x)), value.map((_, j) => (j === i ? {} : presetAt(j))))}
+                  options={[...(id ? [] : [{ value: "", label: "Choose a product…" }]), ...products.map((p) => ({ value: p.value, label: p.label }))]}
+                />
+                <div className="mb-3 flex gap-3 text-[14px] font-semibold">
+                  {i > 0 && <button type="button" onClick={() => move(i, -1)} className="underline">Up</button>}
+                  {i < value.length - 1 && <button type="button" onClick={() => move(i, 1)} className="underline">Down</button>}
+                  <button type="button" onClick={() => update(value.filter((_, j) => j !== i), value.map((_, k) => presetAt(k)).filter((_, j) => j !== i))} className="text-danger underline">
+                    Remove
+                  </button>
+                </div>
+              </div>
+              {product && product.options.length > 0 && (
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  {product.options.map((o) => (
+                    <SelectField
+                      key={o.name}
+                      label={o.name}
+                      path={`packPresets.${i}.${o.name}`}
+                      value={presetAt(i)[o.name] ?? ""}
+                      onChange={(n) => update(value, value.map((_, j) => (j === i ? { ...presetAt(j), [o.name]: n } : presetAt(j))))}
+                      options={[{ value: "", label: "Customer chooses" }, ...o.values.map((v) => ({ value: v, label: `Fixed: ${v}` }))]}
+                    />
+                  ))}
+                </div>
+              )}
+              <PresetError index={i} />
+            </li>
+          );
+        })}
       </ol>
       {value.length < 12 && (
-        <button type="button" onClick={() => onChange([...value, value.at(-1) ?? ""])} className="self-start font-semibold underline">
+        <button type="button" onClick={() => update([...value, value.at(-1) ?? ""], [...value.map((_, k) => presetAt(k)), {}])} className="self-start font-semibold underline">
           Add a piece
         </button>
       )}
@@ -244,10 +291,15 @@ function PackPieces({ value, onChange, products, price }: { value: string[]; onC
         {total == null
           ? "Supplier cost: set a supplier cost on every piece to see it."
           : `Supplier cost of the pieces: £${(total / 100).toFixed(2)}${pricePence > 0 ? `, margin ${Math.round(((pricePence - total) / pricePence) * 100)}% at this price` : ""}. The pack's cost updates when a piece's does.`}
-        {" "}Each piece is ordered from its own supplier.
+        {" "}Fix an option (e.g. a colour) to decide it for the customer; they choose the rest. Each piece is ordered from its own supplier.
       </p>
     </>
   );
+}
+
+function PresetError({ index }: { index: number }) {
+  const error = useFieldError(`packPresets.${index}`);
+  return error ? <p className="mt-2 text-[14px] font-semibold text-danger">{error}</p> : null;
 }
 
 function PackError() {

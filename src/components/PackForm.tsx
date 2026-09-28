@@ -16,6 +16,8 @@ export interface PackPiece {
   availability: string;
   options: ProductOption[];
   variants: StoreVariant[];
+  /** Options we've fixed for this piece, e.g. { Colour: "Black" }: shown, not chosen. */
+  preset: Record<string, string>;
 }
 
 const canBuy = (a: string) => (PURCHASABLE as readonly string[]).includes(a);
@@ -44,8 +46,10 @@ export default function PackForm({
   const router = useRouter();
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
-  // chosen[piece][option]; single-value options are chosen for you.
-  const [chosen, setChosen] = useState<(string | null)[][]>(() => pieces.map((p) => p.options.map((o) => (o.values.length === 1 ? o.values[0] : null))));
+  // chosen[piece][option]: fixed options and single-value ones are chosen for you.
+  const [chosen, setChosen] = useState<(string | null)[][]>(() =>
+    pieces.map((p) => p.options.map((o) => p.preset[o.name] ?? (o.values.length === 1 ? o.values[0] : null))),
+  );
   const [tried, setTried] = useState(false);
 
   const withOptions = (p: PackPiece) => p.options.length > 0 && p.variants.length > 0;
@@ -91,7 +95,13 @@ export default function PackForm({
               </p>
               {withOptions(p) ? (
                 <div className="mt-3 space-y-4">
-                  {p.options.map((o, k) => (
+                  {p.options.map((o, k) =>
+                    p.preset[o.name] ? (
+                      <p key={o.name} className="text-[15px]">
+                        <span className="font-semibold">{o.name}</span>
+                        <span className="text-muted">: {p.preset[o.name]}</span>
+                      </p>
+                    ) : (
                     <OptionPicker
                       key={o.name}
                       option={o}
@@ -101,7 +111,8 @@ export default function PackForm({
                       }
                       onChange={(val) => setChosen((c) => c.map((row, r) => (r === i ? row.map((x, j) => (j === k ? val : x)) : row)))}
                     />
-                  ))}
+                    ),
+                  )}
                 </div>
               ) : null}
               {err && <p className="mt-2 text-[14px] font-semibold text-danger">{err}</p>}

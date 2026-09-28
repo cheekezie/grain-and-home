@@ -25,6 +25,10 @@ export function toStoreProduct(p: Lean): T.StoreProduct {
     availability: p.availability ?? "in_stock",
     featured: !!p.featured,
     packSlots: (p.packSlots ?? []).map(String),
+    packPresets: (p.packSlots ?? []).map((_: unknown, i: number) => {
+      const preset = p.packPresets?.[i];
+      return preset && typeof preset === "object" ? Object.fromEntries(Object.entries(preset).filter((e): e is [string, string] => typeof e[1] === "string")) : {};
+    }),
     options: (p.options ?? []).map((o: Lean) => ({ name: o.name, values: [...(o.values ?? [])], ...(o.google && { google: o.google }) })),
     // Customers see each variant's own price, or the product's.
     variants: (p.variants ?? []).map((v: Lean) => ({ id: v.id, values: [...(v.values ?? [])], price: num(v.price) ?? p.price, availability: v.availability ?? "in_stock" })),

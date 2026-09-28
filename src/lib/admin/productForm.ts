@@ -7,7 +7,7 @@ import type { DetailField } from "@/lib/shop/types";
 export function emptyProduct(fields: DetailField[], category = ""): ProductValue {
   return {
     slug: "", name: "", category, summary: "", description: "", images: [],
-    price: "", supplierCost: "", returnCost: "", details: detailsToForm(fields, {}), options: [], variants: [], packSlots: [], deliveryType: "courier", deliveryEstimate: "",
+    price: "", supplierCost: "", returnCost: "", details: detailsToForm(fields, {}), options: [], variants: [], packSlots: [], packPresets: [], deliveryType: "courier", deliveryEstimate: "",
     availability: "in_stock", supplierId: "", supplierSku: "", supplierUrl: "", internalNotes: "", status: "draft", featured: false, sortOrder: 100,
   };
 }
@@ -18,6 +18,7 @@ export function toProductValue(p: AdminProduct, fields: DetailField[]): ProductV
     price: penceToPounds(p.price), supplierCost: penceToPounds(p.supplierCost), returnCost: penceToPounds(p.returnCost),
     details: detailsToForm(fields, p.details),
     packSlots: p.packSlots,
+    packPresets: p.packSlots.map((_, i) => p.packPresets[i] ?? {}),
     options: p.options.map((o) => ({ name: o.name, valuesText: o.values.join(", "), google: o.google ?? "" })),
     variants: p.variants.map((v) => ({
       id: v.id, values: v.values, price: penceToPounds(v.price), supplierCost: penceToPounds(v.supplierCost), supplierSku: v.supplierSku ?? "", availability: v.availability,

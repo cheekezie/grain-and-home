@@ -26,6 +26,8 @@ export interface StoreProduct {
   variants: StoreVariant[];
   /** A pack: the product id of each piece, in order. Empty for ordinary products. */
   packSlots: string[];
+  /** A pack: per piece, options we've fixed (e.g. { Colour: "Black" }). */
+  packPresets: Record<string, string>[];
   deliveryType: DeliveryType;
   deliveryEstimate: string;
   returnCost?: number;

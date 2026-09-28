@@ -156,6 +156,11 @@ shop-specific is in code any more:
   is shared across pieces by their own prices, whole pence, remainder on
   the first, so the pieces add up to Stripe's amount. The confirmation
   email groups a pack back into one line.
+- Pack presets (2026-09-28): `packPresets` (per piece, same order as
+  packSlots) fixes options for the customer, e.g. { Colour: "Black" }; they
+  choose the rest. Shown as text on the pack page; `matchesPreset` in
+  `resolvePack` refuses choices that break them; saving drops values the
+  piece doesn't have and needs at least one matching combination.
 - Not done: second-shop deploy checklist (phase 4). Insights margins use each product's own price/cost (not per
   variant); best-sellers count pack pieces under their own products. The
   Google feed lists a pack as one item without size.

@@ -94,10 +94,21 @@ export async function saveProduct(id: string | null, _prev: FormState, form: For
   if (!(await CategoryModel.exists({ slug: data.category }))) detailErrors.category = `Choose a ${shop.words.categoryLabel.toLowerCase()}`;
   // A pack: its pieces must be ordinary products; its supplier cost is theirs added up.
   if (data.packSlots.length) {
-    const pieces = await ProductModel.find({ _id: { $in: [...new Set(data.packSlots)] } }).select("name supplierCost packSlots").lean();
+    const pieces = await ProductModel.find({ _id: { $in: [...new Set(data.packSlots)] } }).select("name supplierCost packSlots options variants").lean();
     const byId = new Map(pieces.map((x) => [String(x._id), x]));
     const bad = data.packSlots.findIndex((s) => !byId.has(s) || s === id || ((byId.get(s)!.packSlots as unknown[] | undefined) ?? []).length);
     if (bad >= 0) detailErrors[`packSlots.${bad}`] = "Choose a product that isn't a pack";
+    // Presets: only this piece's real options and values, and at least one combination must exist.
+    data.packPresets = data.packSlots.map((slot, i) => {
+      const piece = byId.get(slot);
+      const preset = data.packPresets[i] ?? {};
+      const options = (piece?.options ?? []) as { name: string; values: string[] }[];
+      const kept = Object.fromEntries(Object.entries(preset).filter(([name, value]) => options.some((o) => o.name === name && o.values.includes(value))));
+      const variants = (piece?.variants ?? []) as { values: string[] }[];
+      const fits = variants.some((v) => Object.entries(kept).every(([name, value]) => v.values[options.findIndex((o) => o.name === name)] === value));
+      if (Object.keys(kept).length && !fits) detailErrors[`packPresets.${i}`] = "No combination of this product matches these fixed options";
+      return kept;
+    });
     const costs = data.packSlots.map((s) => byId.get(s)?.supplierCost as number | undefined);
     data.supplierCost = costs.every((c) => typeof c === "number") ? costs.reduce<number>((a, c) => a + (c as number), 0) : undefined;
     if (data.status === "published" && data.supplierCost === undefined) detailErrors.packSlots = "Every piece needs a supplier cost before the pack can be published";
@@ -115,6 +126,7 @@ export async function saveProduct(id: string | null, _prev: FormState, form: For
   const before = id ? await ProductModel.findById(id).select("availability").lean() : null;
   const checkedNow = !before || before.availability !== data.availability;
 
+  if (!data.packSlots.length) data.packPresets = [];
   const set: Record<string, unknown> = { ...data, details, supplier: data.packSlots.length ? undefined : supplierId || undefined, ...(checkedNow ? { availabilityCheckedAt: new Date() } : {}) };
   const unset = Object.fromEntries(["supplierCost", "returnCost", "supplierUrl", "supplier"].filter((k) => set[k] === undefined).map((k) => [k, 1]));
   for (const k of Object.keys(unset)) delete set[k];

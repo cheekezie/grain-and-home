@@ -54,6 +54,11 @@ const productSchema = new Schema(
      * Empty: an ordinary product.
      */
     packSlots: { type: [{ type: Schema.Types.ObjectId, ref: "Product" }], default: [] },
+    /**
+     * Per piece (same order as packSlots): options fixed by us, e.g.
+     * { Colour: "Black" }. The customer chooses only the others.
+     */
+    packPresets: { type: [Schema.Types.Mixed], default: [] },
     /** The shop's own product details (Admin → Shop settings → Product details), by field key. */
     details: { type: Schema.Types.Mixed, default: {} },
 

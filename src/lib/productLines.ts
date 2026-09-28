@@ -79,6 +79,8 @@ export function resolvePack(pack: Lean, components: Map<string, Lean>, choices: 
     if (!product) return { ok: false, reason: "missing_piece" };
     const line = resolveLine(product, choices[i] || undefined);
     if (!line.ok) return { ok: false, reason: line.reason, piece: product.name };
+    // Options we fixed for this piece (e.g. its colour) can't be changed by the customer.
+    if (!matchesPreset(product, choices[i], (pack.packPresets ?? [])[i])) return { ok: false, reason: "no_variant", piece: product.name };
     pieces.push({ product, line });
   }
   const overall = (pack.availability ?? "in_stock") as Availability;
@@ -95,3 +97,15 @@ export function resolvePack(pack: Lean, components: Map<string, Lean>, choices: 
 
 /** Every product id the given products' packs contain. */
 export const packComponentIds = (products: Lean[]) => [...new Set(products.flatMap((p) => ((p.packSlots ?? []) as unknown[]).map(String)))];
+
+/** Whether a piece's chosen variant keeps the options we fixed for it. */
+export function matchesPreset(product: Lean, variantId: string | undefined, preset: unknown): boolean {
+  if (!preset || typeof preset !== "object" || !Object.keys(preset).length) return true;
+  const options = (product.options ?? []) as { name: string }[];
+  const v = ((product.variants ?? []) as { id: string; values: string[] }[]).find((x) => x.id === variantId);
+  if (!v) return false;
+  return Object.entries(preset as Record<string, string>).every(([name, value]) => {
+    const i = options.findIndex((o) => o.name === name);
+    return i < 0 || v.values[i] === value;
+  });
+}
