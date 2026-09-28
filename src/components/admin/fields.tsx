@@ -342,13 +342,13 @@ export function ImagesField({
                 />
                 {valueChoices.length > 0 && (
                   <label className="flex items-center gap-2 text-[14px]">
-                    <span className="shrink-0 text-muted">Shows</span>
+                    <span className="shrink-0 text-muted">Variant</span>
                     <select
                       value={img.forValue && valueChoices.includes(img.forValue) ? img.forValue : ""}
                       onChange={(e) => onChange(value.map((x, j) => (j === i ? { ...x, forValue: e.target.value || undefined } : x)))}
                       className="min-w-0 flex-1 rounded-lg border border-line bg-white px-2 py-1.5"
                     >
-                      <option value="">Any choice</option>
+                      <option value="">All variants</option>
                       {valueChoices.map((c) => (
                         <option key={c} value={c}>{c}</option>
                       ))}

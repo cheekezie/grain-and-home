@@ -175,7 +175,7 @@ shop-specific is in code any more:
   (cutout false) fill the card; unknown (fetch failed) stays whole. Older
   products: `npx tsx --conditions=react-server scripts/detect-photo-backgrounds.ts`.
 - Colour photos: `images[].forValue` tags a photo with an option value
-  (admin: "Shows" on each photo). `imageFor` (lib/variantImages.ts) picks
+  (admin: "Variant" on each photo). `imageFor` (lib/variantImages.ts) picks
   it for the gallery (AddToCartForm sends a `product-choice` window event,
   ProductGallery listens), basket/buy-now lines, pack rows, order lines and
   the feed's variant listings. Galleries whose first photo has its own
