@@ -48,7 +48,13 @@ export const productSchema = z
     summary: text("Summary", 300),
     description: text("Description", 8000),
     images: z
-      .array(z.object({ url: z.url({ protocol: /^https$/, error: "Photo links must start with https://" }), alt: z.string().trim().max(200).default("") }))
+      .array(
+        z.object({
+          url: z.url({ protocol: /^https$/, error: "Photo links must start with https://" }),
+          alt: z.string().trim().max(200).default(""),
+          forValue: z.string().trim().max(40).optional().transform((s) => s || undefined),
+        }),
+      )
       .max(12),
     price: pounds("Price", false),
     supplierCost: pounds("Supplier cost", false),

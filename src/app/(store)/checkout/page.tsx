@@ -4,6 +4,7 @@ import PaymentMethods from "@/components/store/PaymentMethods";
 import BackLink from "@/components/store/BackLink";
 import { getPackPieces, getProduct } from "@/lib/store";
 import { variantLabel } from "@/lib/variants";
+import { imageFor } from "@/lib/variantImages";
 import { PURCHASABLE } from "@/lib/catalogue";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
@@ -32,7 +33,7 @@ export default async function CheckoutPage({ searchParams }: PageProps<"/checkou
     } else if (p && ok(p.availability) && !p.variants.length) {
       buyNow = { productId: p.id, slug: p.slug, name: p.name, price: p.price, image: p.images[0]?.url ?? null, quantity };
     } else if (p && ok(p.availability) && variant && ok(variant.availability)) {
-      buyNow = { productId: p.id, variantId: variant.id, variant: variantLabel(variant.values), slug: p.slug, name: p.name, price: variant.price, image: p.images[0]?.url ?? null, quantity };
+      buyNow = { productId: p.id, variantId: variant.id, variant: variantLabel(variant.values), slug: p.slug, name: p.name, price: variant.price, image: imageFor(p.images, variant.values)?.url ?? null, quantity };
     }
   }
   return (

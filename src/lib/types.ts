@@ -9,6 +9,8 @@ export interface ProductImage {
   alt: string;
   /** true: plain white/transparent background; false: the photo has its own background; missing: not known. */
   cutout?: boolean;
+  /** The option value this photo shows, e.g. "Pink" (products with options). */
+  forValue?: string;
 }
 
 /** What the storefront may see. No supplier details, ever. */

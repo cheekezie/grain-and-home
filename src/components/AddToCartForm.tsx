@@ -9,6 +9,8 @@ import { showToast } from "@/lib/toast";
 import { formatPrice } from "@/lib/money";
 import { PURCHASABLE } from "@/lib/catalogue";
 import { variantLabel, type ProductOption, type StoreVariant } from "@/lib/variants";
+import { CHOICE_EVENT, imageFor, type ChoiceDetail } from "@/lib/variantImages";
+import type { ProductImage } from "@/lib/types";
 
 const canBuy = (v: StoreVariant) => (PURCHASABLE as readonly string[]).includes(v.availability);
 
@@ -21,7 +23,10 @@ export default function AddToCartForm({
   purchasable,
   options = [],
   variants = [],
+  images = [],
 }: {
+  /** All the product's photos: the one for the chosen colour goes in the basket. */
+  images?: ProductImage[];
   productId: string;
   slug: string;
   name: string;
@@ -38,6 +43,11 @@ export default function AddToCartForm({
   // One chosen value per option; an option with a single value is chosen for you.
   const [chosen, setChosen] = useState<(string | null)[]>(() => options.map((o) => (o.values.length === 1 ? o.values[0] : null)));
   const [missing, setMissing] = useState(false);
+
+  // Tell the gallery what's chosen, so it can show that colour's photo.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent<ChoiceDetail>(CHOICE_EVENT, { detail: { productId, values: chosen } }));
+  }, [chosen, productId]);
 
   // A link to one combination (?v=m--black, e.g. from Google Shopping) arrives with it chosen.
   // Read after hydration so the cached page's HTML stays the same for everyone.
@@ -119,13 +129,14 @@ export default function AddToCartForm({
           onClick={() => {
             const line = ready();
             if (!line) return;
-            addItem({ productId, slug, name, image, ...line }, quantity);
+            const photo = imageFor(images, chosen)?.url ?? image;
+            addItem({ productId, slug, name, image: photo, ...line }, quantity);
             setAdded(true);
             const label = line.variant ? `${name}, ${line.variant}` : name;
             showToast({
               title: "Added to your basket",
               body: quantity > 1 ? `${quantity} × ${label}` : label,
-              image,
+              image: photo,
               action: { label: "View basket", href: "/basket" },
             });
           }}

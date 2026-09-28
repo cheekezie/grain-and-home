@@ -6,7 +6,7 @@ import { CheckboxField, ImagesField, MarginNote, MoneyField, Section, SelectFiel
 import { AVAILABILITY, AVAILABILITY_LABELS, DELIVERY_LABELS, DELIVERY_TYPES } from "@/lib/catalogue";
 import type { DetailFormValue } from "@/lib/shop/details";
 import type { DetailField } from "@/lib/shop/types";
-import ProductOptions, { type OptionFormValue, type VariantFormValue } from "./ProductOptions";
+import ProductOptions, { splitValues, type OptionFormValue, type VariantFormValue } from "./ProductOptions";
 import type { FormState } from "@/lib/admin/schemas";
 import type { ProductImage } from "@/lib/types";
 
@@ -119,7 +119,13 @@ export function ProductEditor({
       </Section>
 
       <Section title="Photos">
-        <ImagesField path="images" value={v.images} onChange={(i) => set("images", i)} />
+        <ImagesField
+          path="images"
+          value={v.images}
+          onChange={(i) => set("images", i)}
+          // Tag a photo with a choice (e.g. its colour) and it shows when that's chosen.
+          valueChoices={[...new Set(v.options.flatMap((o) => splitValues(o.valuesText)))]}
+        />
       </Section>
 
       <Section title="Price and margin" hint={`Prices include VAT and ${shop.areaText} delivery.`}>

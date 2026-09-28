@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ProductImage } from "@/lib/types";
 import ShopImage from "@/components/store/ShopImage";
+import { CHOICE_EVENT, type ChoiceDetail } from "@/lib/variantImages";
 
 const HOVER_ZOOM = 2;
 const VIEWER_ZOOM = 2.5;
@@ -12,8 +13,19 @@ const VIEWER_ZOOM = 2.5;
 // cursor. Clicking (or tapping on a phone) opens a full-screen viewer:
 // tap/click to zoom in at that point, move or drag to look around, arrow
 // keys or buttons for the next photo, Escape to close.
-export default function ProductGallery({ images, name }: { images: ProductImage[]; name: string }) {
+export default function ProductGallery({ images, name, productId }: { images: ProductImage[]; name: string; productId?: string }) {
   const [i, setI] = useState(0);
+  // When the customer picks a colour (or any value a photo is tagged with), show its photo.
+  useEffect(() => {
+    const onChoice = (e: Event) => {
+      const { productId: id, values } = (e as CustomEvent<ChoiceDetail>).detail;
+      if (id !== productId) return;
+      const at = images.findIndex((img) => img.forValue && values.includes(img.forValue));
+      if (at >= 0) setI(at);
+    };
+    window.addEventListener(CHOICE_EVENT, onChoice);
+    return () => window.removeEventListener(CHOICE_EVENT, onChoice);
+  }, [images, productId]);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const [viewer, setViewer] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
@@ -37,14 +49,15 @@ export default function ProductGallery({ images, name }: { images: ProductImage[
         }}
         onPointerLeave={() => setHover(null)}
         aria-label={`Zoom in: open photo ${index + 1} of ${images.length} full screen`}
-        className="group relative block aspect-square w-full cursor-zoom-in overflow-hidden rounded-2xl bg-plaster"
+        // Photos with their own background (model shots) get a taller frame, so filling it doesn't cut off heads and feet.
+        className={`group relative block ${images[0].cutout === false ? "aspect-[4/5]" : "aspect-square"} w-full cursor-zoom-in overflow-hidden rounded-2xl bg-plaster`}
       >
         <ShopImage
           src={current.url}
           alt={current.alt || name}
           sizes="(min-width: 1024px) 55vw, 100vw"
           eager
-          className="object-contain p-8 mix-blend-multiply transition-transform duration-150 ease-out motion-reduce:transition-none"
+          className={`${current.cutout === false ? "object-cover" : "object-contain p-8"} mix-blend-multiply transition-transform duration-150 ease-out motion-reduce:transition-none`}
           style={hover ? { transform: `scale(${HOVER_ZOOM})`, transformOrigin: `${hover.x}% ${hover.y}%` } : undefined}
         />
         <span className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-[13px] font-semibold shadow-sm transition-opacity group-hover:opacity-0">

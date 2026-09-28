@@ -74,7 +74,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
       </nav>
 
       <div className="mt-4 grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16">
-        <ProductGallery images={p.images} name={p.name} />
+        <ProductGallery images={p.images} name={p.name} productId={p.id} />
 
         <div>
           <h1 className="font-display text-[clamp(2rem,4vw,3rem)] leading-tight">{p.name}</h1>
@@ -110,7 +110,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
               name={p.name}
               price={p.price}
               image={p.images[0]?.url ?? null}
-              pieces={pieces.map((x, i) => ({ name: x.name, image: x.images[0]?.url ?? null, availability: x.availability, options: x.options, variants: x.variants, preset: p.packPresets[i] ?? {} }))}
+              pieces={pieces.map((x, i) => ({ name: x.name, image: x.images[0]?.url ?? null, images: x.images, availability: x.availability, options: x.options, variants: x.variants, preset: p.packPresets[i] ?? {} }))}
             />
           ) : purchasable && !pieces.length ? (
           <AddToCartForm
@@ -122,6 +122,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
             purchasable={purchasable}
             options={p.options}
             variants={p.variants}
+            images={p.images}
           />
           ) : null}
           <div className="mt-4"><SaveButton item={shopperItem} /></div>

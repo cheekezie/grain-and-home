@@ -127,7 +127,12 @@ export async function saveProduct(id: string | null, _prev: FormState, form: For
   const before = id ? await ProductModel.findById(id).select("availability images").lean() : null;
   // Which photos are cut-outs (checked once per photo; see lib/imageCutout.ts).
   const known = new Map(((before?.images ?? []) as { url: string; cutout?: boolean }[]).map((i) => [i.url, i.cutout]));
-  data.images = await withCutoutFlags(data.images, known);
+  // A photo can be for one of the product's option values ("Pink"); drop tags that no longer exist.
+  const optionValues = new Set(data.options.flatMap((o) => o.values));
+  data.images = await withCutoutFlags(
+    data.images.map((img) => ({ ...img, forValue: img.forValue && optionValues.has(img.forValue) ? img.forValue : undefined })),
+    known,
+  );
   const checkedNow = !before || before.availability !== data.availability;
 
   if (!data.packSlots.length) data.packPresets = [];

@@ -3,6 +3,7 @@ import { toStoreProduct } from "@/lib/serialize";
 import { getCategoryNames, getShopSettings } from "@/lib/shop/server";
 import { googleDetails } from "@/lib/shop/details";
 import { variantLabel } from "@/lib/variants";
+import { imageFor } from "@/lib/variantImages";
 import { siteConfig } from "@/lib/siteConfig";
 import { absoluteUrl } from "@/lib/seo";
 import ProductModel from "@/models/Product";
@@ -26,7 +27,9 @@ export async function GET() {
   // A product with options is one listing per combination, grouped by
   // item_group_id, each with its own price, stock and size/colour.
   const items = docs.map(toStoreProduct).filter((p) => p.images.length > 0).flatMap((p) => (p.variants.length ? p.variants : [null]).map((v) => {
-    const [main, ...more] = p.images;
+    // A variant's listing leads with its own colour's photo.
+    const lead = v ? imageFor(p.images, v.values) ?? p.images[0] : p.images[0];
+    const [main, ...more] = [lead, ...p.images.filter((i) => i !== lead)];
     const g = googleDetails(shop.details, p.details);
     // The variant's choices fill the Google attributes their option is linked to.
     if (v) p.options.forEach((o, i) => { if (o.google === "size") g.size = v.values[i]; else if (o.google === "color") g.color = v.values[i]; else if (o.google === "material") g.material = v.values[i]; else if (o.google === "pattern") g.pattern = v.values[i]; });

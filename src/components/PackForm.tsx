@@ -9,10 +9,13 @@ import { showToast } from "@/lib/toast";
 import { PURCHASABLE } from "@/lib/catalogue";
 import { variantLabel, type ProductOption, type StoreVariant } from "@/lib/variants";
 import { OptionPicker } from "./AddToCartForm";
+import { imageFor } from "@/lib/variantImages";
 
 export interface PackPiece {
   name: string;
   image: string | null;
+  /** All the piece's photos, so the row can show the chosen colour's. */
+  images?: { url: string; forValue?: string }[];
   availability: string;
   options: ProductOption[];
   variants: StoreVariant[];
@@ -137,9 +140,9 @@ export default function PackForm({
                 className={`flex w-full items-center gap-3 px-3 py-2.5 text-left ${withOptions(p) ? "hover:bg-plaster" : "cursor-default"}`}
               >
                 <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-plaster">
-                  {p.image && (
+                  {(imageFor(p.images ?? [], chosen[i])?.url ?? p.image) && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.image} alt="" className="absolute inset-0 size-full object-contain mix-blend-multiply" loading="lazy" />
+                    <img src={imageFor(p.images ?? [], chosen[i])?.url ?? p.image ?? ""} alt="" className="absolute inset-0 size-full object-contain mix-blend-multiply" loading="lazy" />
                   )}
                 </span>
                 <span className="min-w-0 flex-1">

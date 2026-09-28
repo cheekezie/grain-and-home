@@ -174,6 +174,12 @@ shop-specific is in code any more:
   cut-outs whole on the panel and let photos with their own background
   (cutout false) fill the card; unknown (fetch failed) stays whole. Older
   products: `npx tsx --conditions=react-server scripts/detect-photo-backgrounds.ts`.
+- Colour photos: `images[].forValue` tags a photo with an option value
+  (admin: "Shows" on each photo). `imageFor` (lib/variantImages.ts) picks
+  it for the gallery (AddToCartForm sends a `product-choice` window event,
+  ProductGallery listens), basket/buy-now lines, pack rows, order lines and
+  the feed's variant listings. Galleries whose first photo has its own
+  background use a 4:5 frame and fill it.
 - Inner shop pages start with a back link (`components/store/BackLink.tsx`):
   product → its category, basket → shop, checkout → basket or the product.
 - Not done: second-shop deploy checklist (phase 4). Insights margins use each product's own price/cost (not per

@@ -295,7 +295,18 @@ export function MarginNote({ price, cost }: { price: string; cost: string }) {
  * Product photos as URLs (e.g. the supplier's image links). First photo is
  * the main one. Only use images the supplier lets resellers use.
  */
-export function ImagesField({ path, value, onChange }: { path: string; value: ProductImage[]; onChange: (v: ProductImage[]) => void }) {
+export function ImagesField({
+  path,
+  value,
+  onChange,
+  valueChoices = [],
+}: {
+  path: string;
+  value: ProductImage[];
+  onChange: (v: ProductImage[]) => void;
+  /** The product's option values ("Pink", "XL"…): a photo can be tagged with one, so it shows when that's chosen. */
+  valueChoices?: string[];
+}) {
   const [url, setUrl] = useState("");
   const error = useFieldError(path);
   const itemError = useNestedFieldError(path);
@@ -329,6 +340,21 @@ export function ImagesField({ path, value, onChange }: { path: string; value: Pr
                   onChange={(e) => onChange(value.map((x, j) => (j === i ? { ...x, alt: e.target.value } : x)))}
                   className="w-full rounded-lg border border-line px-2 py-1.5 text-[15px]"
                 />
+                {valueChoices.length > 0 && (
+                  <label className="flex items-center gap-2 text-[14px]">
+                    <span className="shrink-0 text-muted">Shows</span>
+                    <select
+                      value={img.forValue && valueChoices.includes(img.forValue) ? img.forValue : ""}
+                      onChange={(e) => onChange(value.map((x, j) => (j === i ? { ...x, forValue: e.target.value || undefined } : x)))}
+                      className="min-w-0 flex-1 rounded-lg border border-line bg-white px-2 py-1.5"
+                    >
+                      <option value="">Any choice</option>
+                      {valueChoices.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <div className="flex gap-3 text-[14px] font-semibold">
                   {i === 0 ? <span className="text-moss">Main photo</span> : <button type="button" onClick={() => move(i, -1)} className="underline">Move up</button>}
                   {i < value.length - 1 && <button type="button" onClick={() => move(i, 1)} className="underline">Move down</button>}

@@ -10,6 +10,7 @@ import PromoCodeModel from "@/models/PromoCode";
 import { fetchStripeFee } from "./stripeFees";
 import { confirmNewOrder } from "./mail/orderUpdates";
 import { isPack, packComponentIds, resolveLine, resolvePack } from "./productLines";
+import { imageFor } from "./variantImages";
 
 /** One line of a new order (see models/Order.ts). */
 export interface OrderLine {
@@ -30,6 +31,14 @@ export interface OrderLine {
   supplierUrl?: string | null;
   supplierCost?: number | null;
 }
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/** The product's photo for a chosen variant (its colour's photo if tagged). */
+function photoFor(product: Record<string, any>, variantId?: string): string | undefined {
+  const values = ((product.variants ?? []) as { id: string; values: string[] }[]).find((v) => v.id === variantId)?.values ?? [];
+  return imageFor((product.images ?? []) as { url: string; forValue?: string }[], values)?.url;
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /** Split `total` pence by `weights`, whole pence, with the remainder on the first share so the parts add up exactly. */
 function share(total: number, weights: number[], i: number): number {
@@ -72,7 +81,7 @@ export function stripeLinesToItems(
         variantId: line.variantId,
         packGroup,
         packName: p.name as string,
-        image: (c.images as { url: string }[] | undefined)?.[0]?.url,
+        image: photoFor(c, line.variantId),
         unitPrice: share(paid, weights, i),
         listUnitPrice: share(list, weights, i),
         quantity,
@@ -93,7 +102,7 @@ export function stripeLinesToItems(
       name: stripeProduct?.name ?? v?.name ?? p?.name ?? l.description ?? "Item",
       variant: v?.variant,
       variantId: v?.variantId,
-      image: (p?.images as { url: string }[] | undefined)?.[0]?.url,
+      image: p ? photoFor(p, v?.variantId) : undefined,
       // What the customer actually paid per unit, from Stripe.
       unitPrice: paid,
       listUnitPrice: list,

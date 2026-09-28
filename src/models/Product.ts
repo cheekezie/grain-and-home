@@ -8,6 +8,8 @@ const imageSchema = new Schema(
     alt: { type: String, default: "", trim: true },
     /** Plain white or transparent background (set automatically on save, lib/imageCutout.ts). */
     cutout: Boolean,
+    /** The option value this photo shows (e.g. "Pink"); empty = any. */
+    forValue: { type: String, trim: true },
   },
   { _id: false },
 );
