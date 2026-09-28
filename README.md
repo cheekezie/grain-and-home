@@ -204,6 +204,10 @@ What differs per shop lives in two places:
   for beauty) and the Google category. **Admin → Categories** holds the
   categories with their photos, intros and buying guides.
 
+**To launch another shop, follow [docs/NEW-SHOP.md](docs/NEW-SHOP.md)**: it
+uses `scripts/new-shop.ts` to make the shop's settings file (with fresh
+secrets), check it against the real services, and fill its database.
+
 A new shop starts empty: open Admin → Shop settings and pick a preset
 (Furniture, Clothing, Beauty or Blank), or run
 `npx tsx scripts/shop-setup.ts --preset=clothing`. Presets add no photos.
