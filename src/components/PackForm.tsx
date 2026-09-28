@@ -68,10 +68,18 @@ export default function PackForm({
     return v && canBuy(v.availability) ? null : "That combination is out of stock. Choose another.";
   };
 
+  // One piece open at a time, starting with the first that needs a choice.
+  const firstOpen = () => pieces.findIndex((_, i) => problem(i));
+  const [openIdx, setOpenIdx] = useState<number | null>(() => {
+    const i = firstOpen();
+    return i >= 0 ? i : null;
+  });
+
   const ready = () => {
     const problems = pieces.map((_, i) => problem(i));
     if (problems.some(Boolean)) {
       setTried(true);
+      setOpenIdx(problems.findIndex(Boolean));
       return null;
     }
     return {
@@ -83,39 +91,89 @@ export default function PackForm({
     };
   };
 
+  const choose = (i: number, k: number, val: string) => {
+    const next = chosen.map((row, r) => (r === i ? row.map((x, j) => (j === k ? val : x)) : row));
+    setChosen(next);
+    // Piece done: move on to the next one still needing a choice.
+    const p = pieces[i];
+    const v = next[i].every(Boolean) ? p.variants.find((x) => x.values.every((y, j) => y === next[i][j])) : undefined;
+    if (v && canBuy(v.availability)) {
+      const later = pieces.findIndex((q, n) => n > i && withOptions(q) && !next[n].every(Boolean));
+      const earlier = pieces.findIndex((q, n) => n < i && withOptions(q) && !next[n].every(Boolean));
+      setOpenIdx(later >= 0 ? later : earlier >= 0 ? earlier : null);
+    }
+  };
+
+  /** One line about a piece: what's chosen, or what's still to choose. */
+  const summary = (i: number) => {
+    const p = pieces[i];
+    if (!withOptions(p)) return canBuy(p.availability) ? "Included" : "Out of stock";
+    const picked = p.options.map((o, k) => chosen[i][k]).filter(Boolean) as string[];
+    const missing = p.options.filter((_, k) => !chosen[i][k]).map((o) => o.name.toLowerCase());
+    return [picked.join(" · "), missing.length ? `choose ${missing.join(" and ")}` : ""].filter(Boolean).join(" · ");
+  };
+
+  const done = pieces.filter((_, i) => !problem(i)).length;
+
   return (
     <div className="mt-6 space-y-4">
-      <ol className="space-y-5">
+      <div className="flex items-baseline justify-between text-[14px]">
+        <p className="font-semibold">In this pack</p>
+        <p className="tabular text-muted" aria-live="polite">{done} of {pieces.length} ready</p>
+      </div>
+      <ol className="divide-y divide-line overflow-hidden rounded-xl border border-line">
         {pieces.map((p, i) => {
           const err = tried ? problem(i) : null;
+          const ok = !problem(i);
+          const open = openIdx === i && withOptions(p);
+          const panelId = `pack-piece-${i}`;
           return (
-            <li key={i} className="rounded-xl border border-line p-4">
-              <p className="font-semibold">
-                <span className="text-muted">{i + 1}.</span> {p.name}
-              </p>
-              {withOptions(p) ? (
-                <div className="mt-3 space-y-4">
+            <li key={i}>
+              <button
+                type="button"
+                aria-expanded={withOptions(p) ? open : undefined}
+                aria-controls={withOptions(p) ? panelId : undefined}
+                onClick={() => withOptions(p) && setOpenIdx(open ? null : i)}
+                className={`flex w-full items-center gap-3 px-3 py-2.5 text-left ${withOptions(p) ? "hover:bg-plaster" : "cursor-default"}`}
+              >
+                <span className="relative size-11 shrink-0 overflow-hidden rounded-lg bg-plaster">
+                  {p.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.image} alt="" className="absolute inset-0 size-full object-contain mix-blend-multiply" loading="lazy" />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-semibold">
+                    <span className="text-muted">{i + 1}.</span> {p.name}
+                  </span>
+                  <span className={`block truncate text-[13px] ${err ? "font-semibold text-danger" : "text-muted"}`}>{err ?? summary(i)}</span>
+                </span>
+                {ok ? (
+                  <span aria-label="Ready" className="flex size-6 shrink-0 items-center justify-center rounded-full bg-moss text-white">
+                    <svg aria-hidden viewBox="0 0 20 20" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M4 10.5l4 4 8-9" /></svg>
+                  </span>
+                ) : withOptions(p) ? (
+                  <svg aria-hidden viewBox="0 0 20 20" className={`size-4 shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8l5 5 5-5" /></svg>
+                ) : null}
+              </button>
+              {open && (
+                <div id={panelId} className="space-y-3 border-t border-line bg-plaster/40 px-3 pb-3 pt-2.5">
                   {p.options.map((o, k) =>
-                    p.preset[o.name] ? (
-                      <p key={o.name} className="text-[15px]">
-                        <span className="font-semibold">{o.name}</span>
-                        <span className="text-muted">: {p.preset[o.name]}</span>
-                      </p>
-                    ) : (
-                    <OptionPicker
-                      key={o.name}
-                      option={o}
-                      value={chosen[i][k]}
-                      isAvailable={(val) =>
-                        p.variants.some((v) => canBuy(v.availability) && v.values[k] === val && v.values.every((x, j) => j === k || !chosen[i][j] || chosen[i][j] === x))
-                      }
-                      onChange={(val) => setChosen((c) => c.map((row, r) => (r === i ? row.map((x, j) => (j === k ? val : x)) : row)))}
-                    />
+                    p.preset[o.name] ? null : (
+                      <OptionPicker
+                        key={o.name}
+                        compact
+                        option={o}
+                        value={chosen[i][k]}
+                        isAvailable={(val) =>
+                          p.variants.some((v) => canBuy(v.availability) && v.values[k] === val && v.values.every((x, j) => j === k || !chosen[i][j] || chosen[i][j] === x))
+                        }
+                        onChange={(val) => choose(i, k, val)}
+                      />
                     ),
                   )}
                 </div>
-              ) : null}
-              {err && <p className="mt-2 text-[14px] font-semibold text-danger">{err}</p>}
+              )}
             </li>
           );
         })}

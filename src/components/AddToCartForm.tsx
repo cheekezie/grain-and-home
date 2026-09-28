@@ -152,7 +152,10 @@ export function OptionPicker({
   onChange,
   isAvailable,
   error,
+  compact = false,
 }: {
+  /** Smaller buttons (inside packs). */
+  compact?: boolean;
   option: ProductOption;
   value: string | null;
   onChange: (v: string) => void;
@@ -172,7 +175,7 @@ export function OptionPicker({
           return (
             <label
               key={v}
-              className={`relative min-w-12 cursor-pointer rounded-full border px-4 py-2 text-center text-[15px] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-moss ${
+              className={`relative cursor-pointer rounded-full border text-center ${compact ? "min-w-10 px-3 py-1.5 text-[14px]" : "min-w-12 px-4 py-2 text-[15px]"} has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-moss ${
                 value === v ? "border-ink bg-ink text-white" : ok ? "border-line bg-white hover:border-ink" : "cursor-not-allowed border-line bg-plaster text-muted line-through"
               }`}
             >
