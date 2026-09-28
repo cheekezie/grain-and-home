@@ -3,6 +3,10 @@ import { getInsights, getProductMargins, RANGES, type RangeKey } from "@/lib/adm
 import { MarginChart, RevenueProfitChart, TopProductsChart } from "@/components/admin/InsightsCharts";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/lib/catalogue";
 import { formatPrice } from "@/lib/money";
+import Pagination from "@/components/admin/Pagination";
+import { getShopSettings } from "@/lib/shop/server";
+
+const MARGINS_PER_PAGE = 50;
 
 export const metadata = { title: "Insights" };
 
@@ -35,9 +39,13 @@ function Panel({ title, hint, children, action }: { title: string; hint?: string
 }
 
 export default async function InsightsPage({ searchParams }: PageProps<"/admin/insights">) {
-  const { range: raw } = await searchParams;
+  const { range: raw, page: rawPage } = await searchParams;
   const range: RangeKey = typeof raw === "string" && raw in RANGES ? (raw as RangeKey) : "30d";
-  const [ins, margins] = await Promise.all([getInsights(range), getProductMargins()]);
+  const [ins, margins, shop] = await Promise.all([getInsights(range), getProductMargins(), getShopSettings()]);
+  // The margins table shows 50 products a page; the chart and averages use them all.
+  const pages = Math.max(1, Math.ceil(margins.length / MARGINS_PER_PAGE));
+  const marginPage = Math.min(pages, Math.max(1, Number(typeof rawPage === "string" ? rawPage : 1) || 1));
+  const marginRows = margins.slice((marginPage - 1) * MARGINS_PER_PAGE, marginPage * MARGINS_PER_PAGE);
   const k = ins.kpis;
   const hasSales = k.orders > 0 || k.refundCount > 0;
   const liveMargins = margins.filter((m) => m.live && m.marginPct != null);
@@ -160,13 +168,13 @@ export default async function InsightsPage({ searchParams }: PageProps<"/admin/i
       </Panel>
 
       <Panel title="Product margins" hint="From the price and supplier cost set on each product. Edit a product to change them.">
-        <div className="-mx-5 overflow-x-auto">
+        <div id="margins" className="-mx-5 scroll-mt-6 overflow-x-auto">
           <table className="tabular w-full min-w-[640px] text-left text-[14px]">
             <thead className="border-b border-line text-[13px] text-muted">
-              <tr><th className="px-5 py-2">Product</th><th className="py-2">Room</th><th className="py-2 text-right">Sold</th><th className="py-2 text-right">Price</th><th className="py-2 text-right">Supplier cost</th><th className="py-2 text-right">Margin</th><th className="px-5 py-2 text-right">Margin %</th></tr>
+              <tr><th className="px-5 py-2">Product</th><th className="py-2">{shop.words.categoryLabel}</th><th className="py-2 text-right">Sold</th><th className="py-2 text-right">Price</th><th className="py-2 text-right">Supplier cost</th><th className="py-2 text-right">Margin</th><th className="px-5 py-2 text-right">Margin %</th></tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {margins.map((m) => (
+              {marginRows.map((m) => (
                 <tr key={m.id} className="hover:bg-plaster">
                   <td className="px-5 py-2"><Link href={`/admin/products/${m.id}`} className="hover:underline">{m.name}</Link>{!m.live && <span className="ml-2 rounded-full bg-plaster px-2 text-[12px] text-muted">Draft</span>}</td>
                   <td className="py-2">{m.category}</td>
@@ -180,6 +188,7 @@ export default async function InsightsPage({ searchParams }: PageProps<"/admin/i
             </tbody>
           </table>
         </div>
+        <Pagination path="/admin/insights" params={{ range }} page={marginPage} perPage={MARGINS_PER_PAGE} total={margins.length} anchor="margins" />
       </Panel>
     </div>
   );
