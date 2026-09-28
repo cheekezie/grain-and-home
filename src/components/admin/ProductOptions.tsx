@@ -4,6 +4,7 @@ import { useFieldError, useNestedFieldError } from "./EditorForm";
 import { SelectField, TextField } from "./fields";
 import { AVAILABILITY, AVAILABILITY_LABELS } from "@/lib/catalogue";
 import { MAX_OPTIONS, MAX_VARIANTS, OPTION_GOOGLE, syncVariants, variantLabel, type ProductOption } from "@/lib/variants";
+import { CURRENCY_SYMBOL } from "@/lib/money";
 
 // Options (Size, Colour…) on the product editor, and the variant each
 // combination makes: its own stock, and price, cost and supplier code when
@@ -126,7 +127,7 @@ function VariantRow({ v, index, productPrice, onChange }: { v: VariantFormValue;
         {error && <span className="block text-[13px] font-semibold text-danger">{error}</span>}
       </td>
       <td className="p-2.5">
-        <input aria-label={`Price for ${label}`} inputMode="decimal" value={v.price} placeholder={productPrice ? `£${productPrice}` : "£"} onChange={(e) => onChange({ price: e.target.value })} aria-invalid={!!error} className={`tabular ${cell}`} />
+        <input aria-label={`Price for ${label}`} inputMode="decimal" value={v.price} placeholder={productPrice ? `${CURRENCY_SYMBOL}${productPrice}` : CURRENCY_SYMBOL} onChange={(e) => onChange({ price: e.target.value })} aria-invalid={!!error} className={`tabular ${cell}`} />
       </td>
       <td className="p-2.5">
         <input aria-label={`Supplier cost for ${label}`} inputMode="decimal" value={v.supplierCost} placeholder="Product's" onChange={(e) => onChange({ supplierCost: e.target.value })} className={`tabular ${cell}`} />

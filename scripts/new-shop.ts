@@ -2,6 +2,7 @@
 //
 // 1. Make its settings file, with fresh secrets:
 //      npx tsx scripts/new-shop.ts create --name="Hem & Ink" --domain=hemandink.co.uk --preset=clothing
+//    (add --currency=USD for a shop that doesn't sell in pounds; default GBP)
 //    → shops/hem-and-ink.env (git-ignored). Fill in the lines marked TODO.
 //
 // 2. Check it against the real services (database, Stripe, domain…):
@@ -66,6 +67,8 @@ function create() {
   const preset = flag("preset") ?? "blank";
   if (!PRESETS.includes(preset)) fail(`Preset must be one of: ${PRESETS.join(", ")}`);
   const email = flag("email") ?? `support@${domain.replace(/^www\./, "")}`;
+  const currency = (flag("currency") ?? "GBP").toUpperCase();
+  if (!Intl.supportedValuesOf("currency").includes(currency)) fail(`"${currency}" isn't a currency code. Use one like GBP, USD, EUR, NGN.`);
   const slug = slugify(name);
   const file = join("shops", `${slug}.env`);
   if (existsSync(file) && !args.includes("--force")) fail(`${file} already exists. Use --force to replace it (its secrets will change).`);
@@ -79,6 +82,8 @@ function create() {
     `NEXT_PUBLIC_STORE_NAME=${quote(name)}`,
     `NEXT_PUBLIC_SITE_URL=${quote(`https://${domain}`)}`,
     `NEXT_PUBLIC_SUPPORT_EMAIL=${quote(email)}`,
+    "# Currency for all prices (ISO code). Set before the shop takes orders.",
+    `NEXT_PUBLIC_CURRENCY=${quote(currency)}`,
     `NEXT_PUBLIC_BUSINESS_LEGAL_NAME=${quote(`${TODO}: the business's legal name`)}`,
     'NEXT_PUBLIC_COMPANY_NUMBER=""',
     'NEXT_PUBLIC_VAT_NUMBER=""',
@@ -112,7 +117,7 @@ function create() {
   ];
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, lines.join("\n"), { mode: 0o600 });
-  console.log(`\n✓ Made ${file} for ${name} (preset: ${preset}).`);
+  console.log(`\n✓ Made ${file} for ${name} (preset: ${preset}, currency: ${currency}).`);
   console.log(`\nNext:`);
   console.log(`  1. Fill in the lines marked ${TODO} (database, legal name, Stripe, ZeptoMail).`);
   console.log(`  2. npx tsx scripts/new-shop.ts check ${file}`);
@@ -147,6 +152,8 @@ async function check(file: string) {
     add(false, "Site address is a valid URL", env.NEXT_PUBLIC_SITE_URL);
   }
   add(/^\d{6}$/.test(env.ADMIN_ACCESS_CODE ?? ""), "Admin access code is 6 digits");
+  const currency = (env.NEXT_PUBLIC_CURRENCY || "GBP").toUpperCase();
+  add(Intl.supportedValuesOf("currency").includes(currency), "Currency is a real currency code", currency);
   add((env.SESSION_SECRET ?? "").length >= 32, "Session secret is long enough");
   add((env.SETTINGS_ENCRYPTION_KEY ?? "").length >= 32, "Encryption key is long enough");
   add(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(env.NEXT_PUBLIC_SUPPORT_EMAIL ?? ""), "Support email looks right", env.NEXT_PUBLIC_SUPPORT_EMAIL);
@@ -178,6 +185,8 @@ async function check(file: string) {
       const live = env.STRIPE_SECRET_KEY.startsWith("sk_live_");
       add(true, "Stripe key works", `${account.settings?.dashboard?.display_name ?? account.id}, ${live ? "LIVE" : "test mode"}`);
       add(live, "Stripe is in live mode", live ? undefined : "test key: fine for a trial, switch before launch", !live);
+      const stripeDefault = account.default_currency?.toUpperCase();
+      add(!stripeDefault || stripeDefault === currency, "Shop currency matches Stripe's", `shop ${currency}, Stripe account ${stripeDefault ?? "?"}${stripeDefault && stripeDefault !== currency ? " (payouts convert, with fees)" : ""}`, true);
       const hooks = await stripe.webhookEndpoints.list({ limit: 100 });
       const want = `https://${host}/api/webhooks/stripe`;
       const hook = hooks.data.find((h) => h.url === want);

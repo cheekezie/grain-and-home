@@ -11,6 +11,7 @@ import { fetchStripeFee } from "./stripeFees";
 import { confirmNewOrder } from "./mail/orderUpdates";
 import { isPack, packComponentIds, resolveLine, resolvePack } from "./productLines";
 import { imageFor } from "./variantImages";
+import { CURRENCY } from "./money";
 
 /** One line of a new order (see models/Order.ts). */
 export interface OrderLine {
@@ -164,7 +165,7 @@ export async function createOrderFromSession(session: Stripe.Checkout.Session): 
       total: session.amount_total ?? 0,
       promoCode: m.promoCode || undefined,
       discount: session.total_details?.amount_discount ?? 0,
-      currency: session.currency ?? "gbp",
+      currency: session.currency ?? CURRENCY.toLowerCase(),
       events: [{ status: "paid", note: m.promoCode ? `Payment received via Stripe. Promo code ${m.promoCode} applied.` : "Payment received via Stripe." }],
     });
   } catch (e) {

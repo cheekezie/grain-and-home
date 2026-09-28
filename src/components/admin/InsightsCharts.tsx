@@ -1,6 +1,7 @@
 "use client";
 
 import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { formatCompact, formatPrice } from "@/lib/money";
 
 // Charts for the Insights page. Every chart has a table with the same
 // numbers on the page, so nothing depends on reading a chart.
@@ -10,13 +11,8 @@ const MOSS_LIGHT = "#a9bcae";
 const DANGER = "var(--danger)";
 const INK_MUTED = "var(--muted)";
 
-const gbp = (pence: number) =>
-  new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: Math.abs(pence) < 10000 ? 2 : 0 }).format(pence / 100);
-const gbpAxis = (pence: number) => {
-  if (Math.abs(pence) < 100000) return `£${Math.round(pence / 100)}`;
-  const k = pence / 100000;
-  return `£${Number.isInteger(k) ? k : k.toFixed(1)}k`;
-};
+const gbp = (minor: number) => formatPrice(minor);
+const gbpAxis = (minor: number) => formatCompact(minor);
 
 const tooltipStyle = { borderRadius: 12, border: "1px solid var(--line)", fontSize: 14 } as const;
 

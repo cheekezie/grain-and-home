@@ -7,6 +7,7 @@ import { imageFor } from "@/lib/variantImages";
 import { siteConfig } from "@/lib/siteConfig";
 import { absoluteUrl } from "@/lib/seo";
 import ProductModel from "@/models/Product";
+import { CURRENCY, MINOR_DIGITS, toMajor } from "@/lib/money";
 
 // Google Merchant Center product feed (free listings on Google Shopping).
 // Add it in Merchant Center as a scheduled fetch of
@@ -16,7 +17,7 @@ export const revalidate = 3600;
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const tag = (name: string, value: string | number | undefined | null) => (value === undefined || value === null || value === "" ? "" : `<g:${name}>${esc(String(value))}</g:${name}>`);
-const gbp = (pence: number) => `${(pence / 100).toFixed(2)} GBP`;
+const amount = (minor: number) => `${toMajor(minor).toFixed(MINOR_DIGITS)} ${CURRENCY}`;
 
 const AVAILABILITY: Record<string, string> = { in_stock: "in_stock", low_stock: "in_stock", out_of_stock: "out_of_stock" };
 
@@ -46,7 +47,7 @@ export async function GET() {
       tag("image_link", main.url),
       ...more.slice(0, 10).map((i) => tag("additional_image_link", i.url)),
       tag("availability", AVAILABILITY[availability] ?? "out_of_stock"),
-      tag("price", gbp(v ? v.price : p.price)),
+      tag("price", amount(v ? v.price : p.price)),
       tag("condition", "new"),
       // Brand: the shop's name (owner's decision, 27 Sep 2026). No barcodes on this stock.
       tag("brand", siteConfig.name),
@@ -64,7 +65,7 @@ export async function GET() {
       g.dims?.h ? tag("product_height", `${g.dims.h} cm`) : "",
       g.weightKg ? tag("product_weight", `${g.weightKg} kg`) : "",
       g.weightKg ? tag("shipping_weight", `${g.weightKg} kg`) : "",
-      "<g:shipping><g:country>GB</g:country><g:price>0.00 GBP</g:price></g:shipping>",
+      `<g:shipping><g:country>GB</g:country><g:price>${amount(0)}</g:price></g:shipping>`,
       "</item>",
     ].filter(Boolean).join("");
   }));

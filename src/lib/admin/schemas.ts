@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { AVAILABILITY, DELIVERY_TYPES } from "@/lib/catalogue";
-import { parsePounds } from "@/lib/money";
+import { CURRENCY_SYMBOL, escapeSymbol, parsePounds } from "@/lib/money";
 import { MAX_OPTIONS, MAX_VARIANTS, OPTION_GOOGLE, syncVariants } from "@/lib/variants";
 import { londonDateTime } from "@/lib/londonDate";
 
@@ -233,12 +233,12 @@ export const promoSchema = z
     // The headline is what customers read: its % or £ figure must match the
     // real discount (e.g. "10% off" on a 5% code misleads).
     const pct = p.headline.match(/(\d+(?:\.\d+)?)\s*%/);
-    const gbp = p.headline.match(/£\s*(\d+(?:\.\d{1,2})?)/);
+    const gbp = p.headline.match(new RegExp(`${escapeSymbol(CURRENCY_SYMBOL)}\\s*(\\d+(?:\\.\\d{1,2})?)`));
     if (pct && !(p.kind === "percent" && Number(pct[1]) === value)) {
-      ctx.addIssue({ code: "custom", path: ["headline"], message: `Headline says ${pct[1]}% but the discount is ${p.kind === "percent" ? `${p.value}%` : `£${p.value} off`}` });
+      ctx.addIssue({ code: "custom", path: ["headline"], message: `Headline says ${pct[1]}% but the discount is ${p.kind === "percent" ? `${p.value}%` : `${CURRENCY_SYMBOL}${p.value} off`}` });
     }
-    if (gbp && p.kind === "fixed" && Math.round(Number(gbp[1]) * 100) !== value) {
-      ctx.addIssue({ code: "custom", path: ["headline"], message: `Headline says £${gbp[1]} but the discount is £${p.value}` });
+    if (gbp && p.kind === "fixed" && parsePounds(gbp[1]) !== value) {
+      ctx.addIssue({ code: "custom", path: ["headline"], message: `Headline says ${CURRENCY_SYMBOL}${gbp[1]} but the discount is ${CURRENCY_SYMBOL}${p.value}` });
     }
     if (p.startsOn && p.expiresOn && p.expiresOn <= p.startsOn) ctx.addIssue({ code: "custom", path: ["expiresOn"], message: "Must be after the start date" });
     return {

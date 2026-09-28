@@ -10,7 +10,7 @@ import { checkDeliveryPostcode, postcodeMessage } from "@/lib/delivery";
 import { getShopSettings } from "@/lib/shop/server";
 import { findUsablePromo } from "@/lib/promos";
 import { applyPromo } from "@/lib/promoPricing";
-import { formatPrice } from "@/lib/money";
+import { CURRENCY, formatPrice } from "@/lib/money";
 
 const bodySchema = z.object({
   items: z
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       lineItems.push({
         quantity: item.quantity,
         price_data: {
-          currency: "gbp",
+          currency: CURRENCY.toLowerCase(),
           unit_amount: pack.price,
           product_data: {
             name: pack.name.slice(0, 250),
@@ -109,7 +109,7 @@ export async function POST(request: Request) {
     lineItems.push({
       quantity: item.quantity,
       price_data: {
-        currency: "gbp",
+        currency: CURRENCY.toLowerCase(),
         unit_amount: line.price,
         product_data: {
           name: line.name,
@@ -135,7 +135,7 @@ export async function POST(request: Request) {
     try {
       const coupon = await stripe.coupons.create({
         amount_off: outcome.discount,
-        currency: "gbp",
+        currency: CURRENCY.toLowerCase(),
         duration: "once",
         max_redemptions: 1,
         redeem_by: Math.floor(Date.now() / 1000) + 25 * 3600,

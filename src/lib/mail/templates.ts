@@ -1,4 +1,5 @@
 import { siteConfig } from "@/lib/siteConfig";
+import { formatPrice } from "@/lib/money";
 
 // Customer emails about an order, always from us, never naming the supplier.
 
@@ -76,7 +77,7 @@ ${after ? `<p>${esc(after)}</p>` : ""}
   return { subject, text, html };
 }
 
-const gbp = (pence: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
+const gbp = (minor: number) => formatPrice(minor);
 
 /** Sent as soon as payment goes through. */
 export function orderConfirmationEmail(input: {

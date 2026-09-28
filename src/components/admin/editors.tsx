@@ -9,6 +9,7 @@ import type { DetailField } from "@/lib/shop/types";
 import ProductOptions, { splitValues, type OptionFormValue, type VariantFormValue } from "./ProductOptions";
 import type { FormState } from "@/lib/admin/schemas";
 import type { ProductImage } from "@/lib/types";
+import { CURRENCY_SYMBOL, formatPrice, parsePounds } from "@/lib/money";
 
 type Action = (prev: FormState, form: FormData) => Promise<FormState>;
 
@@ -227,7 +228,7 @@ function PackPieces({
   const costs = value.map((id) => byId.get(id)?.cost);
   const known = costs.every((c) => typeof c === "number");
   const total = known ? costs.reduce<number>((a, c) => a + (c as number), 0) : null;
-  const pricePence = Math.round(parseFloat(price.replace(/[£,\s]/g, "")) * 100);
+  const pricePence = parsePounds(price);
   const presetAt = (i: number) => presets[i] ?? {};
   const update = (slots: string[], next: Record<string, string>[]) => onChange(slots, slots.map((_, i) => next[i] ?? {}));
   const move = (i: number, d: number) => {
@@ -296,7 +297,7 @@ function PackPieces({
       <p className="rounded-lg bg-plaster px-3 py-2 text-[14px]">
         {total == null
           ? "Supplier cost: set a supplier cost on every piece to see it."
-          : `Supplier cost of the pieces: £${(total / 100).toFixed(2)}${pricePence > 0 ? `, margin ${Math.round(((pricePence - total) / pricePence) * 100)}% at this price` : ""}. The pack's cost updates when a piece's does.`}
+          : `Supplier cost of the pieces: ${formatPrice(total)}${pricePence > 0 ? `, margin ${Math.round(((pricePence - total) / pricePence) * 100)}% at this price` : ""}. The pack's cost updates when a piece's does.`}
         {" "}Fix an option (e.g. a colour) to decide it for the customer; they choose the rest. Each piece is ordered from its own supplier.
       </p>
     </>
@@ -525,7 +526,7 @@ export function PromoEditor({
             path="kind"
             value={v.kind}
             onChange={(n) => set("kind", n as PromoValue["kind"])}
-            options={[{ value: "percent", label: "Percentage off" }, { value: "fixed", label: "Amount off (£)" }]}
+            options={[{ value: "percent", label: "Percentage off" }, { value: "fixed", label: `Amount off (${CURRENCY_SYMBOL})` }]}
           />
           {v.kind === "percent" ? (
             <TextField label="Percentage" path="value" value={v.value} onChange={(n) => set("value", n)} type="number" hint="1 to 90" />

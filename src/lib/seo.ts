@@ -4,6 +4,7 @@ import { siteConfig } from "./siteConfig";
 import { excludedPostcodePrefixes } from "./delivery";
 import { googleDetails } from "./shop/details";
 import type { DetailField, DeliveryArea } from "./shop/types";
+import { CURRENCY, MINOR_DIGITS, toMajor } from "./money";
 
 // Search-engine helpers: absolute URLs, Open Graph/Twitter cards, and
 // schema.org structured data. Everything states only what's true on the
@@ -21,7 +22,7 @@ export function shareMeta({ title, description, path, image, type = "website" }:
   };
 }
 
-const money = (pence: number) => (pence / 100).toFixed(2);
+const money = (minor: number) => toMajor(minor).toFixed(MINOR_DIGITS);
 const cm = (v?: number) => (v ? { "@type": "QuantitativeValue", value: v, unitCode: "CMT" } : undefined);
 
 /** "Usually delivered in 3–5 working days" → { min: 3, max: 5 } */
@@ -47,7 +48,7 @@ export function productJsonLd(p: StoreProduct, shop: { categoryName: string; del
   const shipping = [
     {
       "@type": "OfferShippingDetails",
-      shippingRate: { "@type": "MonetaryAmount", value: 0, currency: "GBP" },
+      shippingRate: { "@type": "MonetaryAmount", value: 0, currency: CURRENCY },
       shippingDestination: { "@type": "DefinedRegion", addressCountry: "GB" },
       ...(days && {
         deliveryTime: {
@@ -73,7 +74,7 @@ export function productJsonLd(p: StoreProduct, shop: { categoryName: string; del
     ...(p.returnCost === 0
       ? { returnFees: "https://schema.org/FreeReturn" }
       : p.returnCost != null
-        ? { returnFees: "https://schema.org/ReturnShippingFees", returnShippingFeesAmount: { "@type": "MonetaryAmount", value: Number(money(p.returnCost)), currency: "GBP" } }
+        ? { returnFees: "https://schema.org/ReturnShippingFees", returnShippingFeesAmount: { "@type": "MonetaryAmount", value: Number(money(p.returnCost)), currency: CURRENCY } }
         : {}),
   };
   return {
@@ -98,7 +99,7 @@ export function productJsonLd(p: StoreProduct, shop: { categoryName: string; del
     offers: {
       "@type": "Offer",
       url,
-      priceCurrency: "GBP",
+      priceCurrency: CURRENCY,
       // With options the lowest price is the "from" price; each option's own price is in the Google feed.
       price: money(p.variants.length ? Math.min(...p.variants.map((v) => v.price)) : p.price),
       availability: AVAILABILITY[p.availability] ?? AVAILABILITY.in_stock,

@@ -187,6 +187,12 @@ shop-specific is in code any more:
   (git-ignored). `.env.example` is now committed (template only: no keys).
   Clothing shop name chosen: **Hem & Ink** (hemandink.co.uk and .com free on
   2026-09-28; nearest existing name "Hem & Thread", US; no trademark search).
+- Currency per shop (2026-09-28): `NEXT_PUBLIC_CURRENCY` (ISO code, default
+  GBP; validated against Intl.supportedValuesOf). `lib/money.ts` formats,
+  parses and converts minor units for it (0 decimals for JPY etc.), and
+  checkout, promos, emails, feed, JSON-LD, Insights, CSV and admin fields use
+  it. Only the currency: postcodes, delivery area and legal wording stay UK.
+  `new-shop create --currency=…`; `check` warns if Stripe's default differs.
 - Note: Grain & Home's Stripe account is the owner's "Sintax" account, and no
   live webhook exists yet for grainandhome.co.uk (needed before launch). Insights margins use each product's own price/cost (not per
   variant); best-sellers count pack pieces under their own products. The

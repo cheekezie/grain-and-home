@@ -14,6 +14,10 @@ Time: about an hour, most of it waiting for domain and email verification.
 npx tsx scripts/new-shop.ts create --name="Hem & Ink" --domain=hemandink.co.uk --preset=clothing
 ```
 
+Add `--currency=USD` (or EUR, NGN…) for a shop that doesn't sell in pounds;
+the default is GBP. Set it before the shop takes orders. The Stripe account
+should have the same default currency (`check` warns if not).
+
 This writes `shops/hem-and-ink.env` (git-ignored, private). It already has:
 the name, site address, support email, a fresh 6-digit admin access code and
 every secret. Presets: `furniture`, `clothing`, `beauty`, `blank`.

@@ -1,6 +1,6 @@
 import type { AdminPromo } from "@/lib/admin/queries";
 import type { PromoValue } from "@/components/admin/editors";
-import { penceToPounds } from "@/lib/money";
+import { CURRENCY_SYMBOL, escapeSymbol, parsePounds, penceToPounds } from "@/lib/money";
 import { londonDay } from "@/lib/londonDate";
 
 export const emptyPromo: PromoValue = {
@@ -33,9 +33,9 @@ export function promoState(p: AdminPromo, now = Date.now()): string {
 /** Headline claims a different % or £ than the code gives (for codes saved before the check existed). */
 export function headlineMismatch(p: AdminPromo): string | null {
   const pct = p.headline.match(/(\d+(?:\.\d+)?)\s*%/);
-  const gbp = p.headline.match(/£\s*(\d+(?:\.\d{1,2})?)/);
-  const actual = p.kind === "percent" ? `${p.value}%` : `£${penceToPounds(p.value)}`;
+  const gbp = p.headline.match(new RegExp(`${escapeSymbol(CURRENCY_SYMBOL)}\\s*(\\d+(?:\\.\\d{1,2})?)`));
+  const actual = p.kind === "percent" ? `${p.value}%` : `${CURRENCY_SYMBOL}${penceToPounds(p.value)}`;
   if (pct && !(p.kind === "percent" && Number(pct[1]) === p.value)) return `Headline says ${pct[1]}% but the code gives ${actual}`;
-  if (gbp && p.kind === "fixed" && Math.round(Number(gbp[1]) * 100) !== p.value) return `Headline says £${gbp[1]} but the code gives ${actual}`;
+  if (gbp && p.kind === "fixed" && parsePounds(gbp[1]) !== p.value) return `Headline says ${CURRENCY_SYMBOL}${gbp[1]} but the code gives ${actual}`;
   return null;
 }

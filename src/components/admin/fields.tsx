@@ -4,6 +4,7 @@ import { useId, useState, useTransition } from "react";
 import type { ProductImage } from "@/lib/types";
 import { marginPercent, parsePounds } from "@/lib/money";
 import { useFieldError, useNestedFieldError } from "./EditorForm";
+import { CURRENCY_SYMBOL, formatPrice } from "@/lib/money";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-line bg-white px-3 py-2 text-[16px] aria-[invalid=true]:border-danger";
@@ -262,7 +263,7 @@ export function MoneyField({
       <label htmlFor={id} className="block font-semibold">{label}</label>
       {hint && <p className="text-[14px] text-muted">{hint}</p>}
       <div className="relative mt-1.5">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">£</span>
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">{CURRENCY_SYMBOL}</span>
         <input
           id={id}
           inputMode="decimal"
@@ -283,10 +284,9 @@ export function MarginNote({ price, cost }: { price: string; cost: string }) {
   const c = parsePounds(cost);
   if (Number.isNaN(p) || Number.isNaN(c) || p <= 0) return <p className="text-[14px] text-muted">Enter a price and supplier cost to see the margin.</p>;
   const m = marginPercent(p, c)!;
-  const profit = (p - c) / 100;
   return (
     <p className={`tabular text-[15px] font-semibold ${m < 20 ? "text-danger" : ""}`}>
-      Margin {m}% (£{profit.toFixed(2)} per sale, before payment fees and any delivery you pay)
+      Margin {m}% ({formatPrice(p - c)} per sale, before payment fees and any delivery you pay)
     </p>
   );
 }
