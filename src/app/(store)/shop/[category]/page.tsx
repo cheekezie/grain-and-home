@@ -69,7 +69,7 @@ export default async function CategoryPage({ params }: PageProps<"/shop/[categor
                 <p className="tabular mt-8 text-[15px] text-muted">{products.length} {products.length > 1 ? shop.words.items : shop.words.item}</p>
                 <ProductGrid cols={3} className="mt-4">
                   {products.map((p, i) => (
-                    <ProductCard key={p.id} product={p} eager={i < 8} />
+                    <ProductCard key={p.id} product={p} eager={i < 8} index={i} />
                   ))}
                 </ProductGrid>
               </>
@@ -77,7 +77,7 @@ export default async function CategoryPage({ params }: PageProps<"/shop/[categor
           }
           const items: GridItem[] = products.map((p, i) => ({
             id: p.id,
-            card: <ProductCard product={p} eager={i < 8} />,
+            card: <ProductCard product={p} eager={i < 8} index={i} />,
             inStock: buyable(p.availability) && (!p.variants.length || p.variants.some((v) => buyable(v.availability))),
             details: Object.fromEntries(Object.entries(p.details).filter((e): e is [string, string] => typeof e[1] === "string")),
             variants: p.variants.filter((v) => buyable(v.availability)).map((v) => Object.fromEntries(p.options.map((o, k) => [o.name, v.values[k]]))),

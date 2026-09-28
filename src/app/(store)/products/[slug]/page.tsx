@@ -174,7 +174,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[slug
         <section className="mt-16">
           <h2 className="font-display text-3xl">You might also like</h2>
           <ProductGrid className="mt-6">
-            {related.map((r) => <ProductCard key={r.id} product={r} />)}
+            {related.map((r, i) => <ProductCard key={r.id} product={r} index={i} />)}
           </ProductGrid>
         </section>
       )}

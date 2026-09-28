@@ -34,7 +34,7 @@ export default async function HomePage() {
           <h2 className="font-display text-3xl">{shop.home.featuredHeading}</h2>
           <ProductGrid className="mt-8">
             {featured.map((p, i) => (
-              <ProductCard key={p.id} product={p} eager={i < 4} />
+              <ProductCard key={p.id} product={p} eager={i < 4} index={i} />
             ))}
           </ProductGrid>
         </section>
