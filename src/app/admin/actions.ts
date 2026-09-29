@@ -86,7 +86,7 @@ export async function saveProduct(id: string | null, _prev: FormState, form: For
   assertId(id);
   const parsed = productSchema.safeParse(readPayload(form));
   if (!parsed.success) return toFormState(parsed.error);
-  const { supplierId, details: rawDetails, ...data } = parsed.data;
+  const { supplierId, details: rawDetails, importFrom, ...data } = parsed.data;
   if (supplierId && !isValidObjectId(supplierId)) return { ok: false, message: "Choose a supplier from the list.", errors: { supplierId: "Choose a supplier" } };
 
   await connectDB();
@@ -136,7 +136,7 @@ export async function saveProduct(id: string | null, _prev: FormState, form: For
   const checkedNow = !before || before.availability !== data.availability;
 
   if (!data.packSlots.length) data.packPresets = [];
-  const set: Record<string, unknown> = { ...data, details, supplier: data.packSlots.length ? undefined : supplierId || undefined, ...(checkedNow ? { availabilityCheckedAt: new Date() } : {}) };
+  const set: Record<string, unknown> = { ...data, ...(!id && importFrom ? { printfulId: importFrom.printfulId } : {}), details, supplier: data.packSlots.length ? undefined : supplierId || undefined, ...(checkedNow ? { availabilityCheckedAt: new Date() } : {}) };
   const unset = Object.fromEntries(["supplierCost", "returnCost", "supplierUrl", "supplier"].filter((k) => set[k] === undefined).map((k) => [k, 1]));
   for (const k of Object.keys(unset)) delete set[k];
 
@@ -149,6 +149,8 @@ export async function saveProduct(id: string | null, _prev: FormState, form: For
   }
   if (id) await refreshPackCosts(id);
   refreshStore();
+  // Imported from Printful: back to the same search, to carry on importing.
+  if (!id && importFrom) redirect(flashUrl(`/admin/products/import${importFrom.q ? `?q=${encodeURIComponent(importFrom.q)}` : ""}`, `Product “${parsed.data.name}” created`, `/admin/products/${savedId}`));
   if (!id) redirect(flashUrl("/admin/products", `Product “${parsed.data.name}” created`, `/admin/products/${savedId}`));
   return { ok: true, message: data.status === "published" ? "Saved and live on the shop." : "Saved as a draft." };
 }

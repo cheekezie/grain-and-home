@@ -1,7 +1,8 @@
 import "server-only";
 import type { ProductValue } from "@/components/admin/editors";
 import type { DetailField } from "@/lib/shop/types";
-import { CURRENCY, penceToPounds } from "@/lib/money";
+import { CURRENCY, MINOR_DIGITS, penceToPounds } from "@/lib/money";
+import type { FxRate } from "./fx";
 import { MAX_VARIANTS, variantId } from "@/lib/variants";
 import { emptyProduct } from "./productForm";
 
@@ -10,10 +11,11 @@ import { emptyProduct } from "./productForm";
 // their price to us. Used by Admin → Products → Import from Printful to start
 // a draft product; nothing is saved until the owner saves it in the editor.
 //
-// Printful's public catalogue prices are in US dollars only. They become the
-// supplier cost only when the shop sells in USD; otherwise they are listed in
-// the product's internal notes and the owner enters the cost in the shop's
-// currency (from their Printful dashboard). No conversion is guessed.
+// Printful's public catalogue prices are in US dollars only. For a shop in
+// another currency they are converted at the ECB reference rate (lib/admin/fx),
+// and the notes say which rate and date: Printful bills at its own rate, so
+// the owner checks against their Printful dashboard. When no rate is
+// available (a currency the ECB doesn't publish) the costs stay in the notes.
 
 const API = "https://api.printful.com";
 
@@ -172,6 +174,8 @@ export function printfulDraft(
   chosenColors: string[],
   chosenSizes: string[],
   shop: { fields: DetailField[]; category?: string; supplierId?: string },
+  fx: FxRate | null,
+  q = "",
 ): ProductValue | { error: string } {
   const colors = p.colors.map((c) => c.name).filter((c) => chosenColors.includes(c));
   const sizes = p.sizes.filter((s) => chosenSizes.includes(s));
@@ -181,7 +185,8 @@ export function printfulDraft(
   if (combos > MAX_VARIANTS) return { error: `That makes ${combos} combinations; the most is ${MAX_VARIANTS}. Choose fewer colours or sizes.` };
 
   const name = productName(p.title);
-  const usd = CURRENCY === "USD";
+  /** Dollars to the shop's minor units, or undefined without a rate. */
+  const cost = (usdPrice: string) => (fx ? Math.round(Number(usdPrice) * fx.rate * 10 ** MINOR_DIGITS) : undefined);
   const find = (color: string, size: string) => p.variants.find((v) => (v.color || "") === color && (v.size || "") === size);
 
   const options: ProductValue["options"] = [];
@@ -199,12 +204,19 @@ export function printfulDraft(
         id: variantId(values),
         values,
         price: "",
-        supplierCost: v && usd ? penceToPounds(Math.round(Number(v.price) * 100)) : "",
+        supplierCost: v ? penceToPounds(cost(v.price)) : "",
         supplierSku: v ? String(v.id) : "",
         availability: !v ? "discontinued" : v.inStock ? "in_stock" : "out_of_stock",
       });
     }
   }
+
+  // The most common cost becomes the product's; only combinations that
+  // differ (usually the bigger sizes) keep their own.
+  const counts = new Map<string, number>();
+  for (const v of variants) if (v.supplierCost) counts.set(v.supplierCost, (counts.get(v.supplierCost) ?? 0) + 1);
+  const baseCost = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+  for (const v of variants) if (v.supplierCost === baseCost) v.supplierCost = "";
 
   // One photo per colour, tagged so choosing the colour shows it.
   const images = colors.length
@@ -216,9 +228,11 @@ export function printfulDraft(
   const today = new Date().toISOString().slice(0, 10);
   const notes = [
     `Imported from Printful catalogue product ${p.id} (${p.title}) on ${today}. Supplier codes are Printful variant ids.`,
-    usd
-      ? "Supplier costs are Printful's catalogue prices (USD) before printing, shipping and tax: add the print cost for your design."
-      : `Printful's catalogue lists these in USD only (${usdRange(chosen.map((v) => v.price))} before printing, shipping and tax). Enter your cost in ${CURRENCY} from your Printful dashboard.`,
+    !fx
+      ? `Printful's catalogue lists these in USD only (${usdRange(chosen.map((v) => v.price))} before printing, shipping and tax), and there's no exchange rate for ${CURRENCY}. Enter your cost from your Printful dashboard.`
+      : fx.from === fx.to
+        ? "Supplier costs are Printful's catalogue prices (USD) for the blank, before printing, shipping and tax: add the print cost for your design."
+        : `Supplier costs are Printful's catalogue prices (${usdRange(chosen.map((v) => v.price))}) for the blank, converted at the ECB rate for ${fx.date} ($1 = ${fx.rate} ${fx.to}). Printful bills at its own rate: check against your Printful dashboard, and add printing, shipping and tax.`,
     "The description is Printful's own: rewrite it in the shop's voice before publishing.",
     ...(shop.supplierId ? [] : ["No supplier named Printful yet: add it under Suppliers and choose it here."]),
   ].join("\n");
@@ -232,6 +246,8 @@ export function printfulDraft(
     images,
     options,
     variants,
+    supplierCost: baseCost,
+    importFrom: { printfulId: p.id, q: q.slice(0, 80) },
     supplierId: shop.supplierId ?? "",
     internalNotes: notes,
     availability: chosen.some((v) => v.inStock) ? "in_stock" : "out_of_stock",

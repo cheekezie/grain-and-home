@@ -85,6 +85,8 @@ const productSchema = new Schema(
     supplierSku: { type: String, trim: true },
     supplierUrl: { type: String, trim: true },
     supplierCost: { type: Number, min: 0 },
+    /** The Printful catalogue product it was imported from (Admin → Import from Printful). */
+    printfulId: { type: Number, index: true, sparse: true },
     /** Admin-only working notes: what still needs checking with the supplier. */
     internalNotes: { type: String, default: "" },
 

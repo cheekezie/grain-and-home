@@ -42,6 +42,8 @@ export interface ProductValue {
   supplierId: string;
   supplierSku: string;
   supplierUrl: string;
+  /** Created from Import from Printful (new products only). */
+  importFrom?: { printfulId: number; q: string };
   internalNotes: string;
   status: "draft" | "published";
   featured: boolean;

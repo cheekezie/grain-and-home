@@ -99,6 +99,8 @@ export const productSchema = z
     supplierId: z.string().trim().default(""),
     supplierSku: optionalText(100),
     supplierUrl: optionalUrl,
+    /** Set only when created from Import from Printful: the catalogue id, and the search to go back to. */
+    importFrom: z.object({ printfulId: z.number().int().positive(), q: z.string().max(80) }).optional(),
     internalNotes: optionalText(5000),
     status: z.enum(["draft", "published"]),
     featured: z.boolean(),

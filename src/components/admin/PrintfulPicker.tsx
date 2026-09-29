@@ -15,16 +15,22 @@ interface Variant {
 
 export default function PrintfulPicker({
   id,
+  q,
   colors,
   sizes,
   variants,
   shopCurrency,
+  fx,
 }: {
   id: number;
+  /** The search to come back to. */
+  q: string;
   colors: { name: string; code: string; image: string }[];
   sizes: string[];
   variants: Variant[];
   shopCurrency: string;
+  /** USD → shop currency (ECB reference rate); null when there isn't one. */
+  fx: { rate: number; date: string } | null;
 }) {
   const [chosenColors, setColors] = useState<string[]>([]);
   const [chosenSizes, setSizes] = useState<string[]>(sizes);
@@ -45,6 +51,7 @@ export default function PrintfulPicker({
   return (
     <form action="/admin/products/new" method="get" className="space-y-8">
       <input type="hidden" name="printful" value={id} />
+      {q && <input type="hidden" name="q" value={q} />}
 
       {colors.length > 0 && (
         <fieldset>
@@ -110,8 +117,10 @@ export default function PrintfulPicker({
             </table>
             <p className="mt-3 text-[14px] text-muted">
               {shopCurrency === "USD"
-                ? "These go in as each combination's supplier cost. Add your print cost, then set your prices."
-                : `Your shop sells in ${shopCurrency}, so costs are left for you to enter from your Printful dashboard. These dollar prices go in the product's notes.`}
+                ? "These go in as the supplier cost. Add your print cost, then set your price."
+                : fx
+                  ? `These go in as the supplier cost in ${shopCurrency}, converted at the European Central Bank rate for ${fx.date} ($1 = ${fx.rate} ${shopCurrency}). Printful bills at its own rate, so check against your Printful dashboard.`
+                  : `There's no exchange rate for ${shopCurrency}, so costs are left for you to enter from your Printful dashboard. These dollar prices go in the product's notes.`}
             </p>
           </>
         )}

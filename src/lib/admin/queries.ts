@@ -22,6 +22,20 @@ export async function adminProducts() {
   return (await ProductModel.find().sort({ category: 1, sortOrder: 1, name: 1 }).lean()).map(toAdminProduct);
 }
 
+/** Products imported from Printful, by Printful catalogue id (a blank can be imported more than once). */
+export async function printfulImports() {
+  await requireAdmin();
+  await connectDB();
+  const rows = await ProductModel.find({ printfulId: { $exists: true } }).select("name status printfulId createdAt").sort({ createdAt: -1 }).lean();
+  const byId = new Map<number, { id: string; name: string; status: "draft" | "published" }[]>();
+  for (const r of rows) {
+    const list = byId.get(r.printfulId as number) ?? [];
+    list.push({ id: String(r._id), name: r.name, status: r.status as "draft" | "published" });
+    byId.set(r.printfulId as number, list);
+  }
+  return byId;
+}
+
 export async function adminProduct(id: string) {
   await requireAdmin();
   if (!isValidObjectId(id)) notFound();

@@ -2,5 +2,5 @@
 export function flashUrl(path: string, message: string, href?: string) {
   const q = new URLSearchParams({ flash: message });
   if (href) q.set("flashHref", href);
-  return `${path}?${q}`;
+  return `${path}${path.includes("?") ? "&" : "?"}${q}`;
 }

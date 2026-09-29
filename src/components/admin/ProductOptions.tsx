@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useFieldError, useNestedFieldError } from "./EditorForm";
 import { SelectField, TextField } from "./fields";
 import { AVAILABILITY, AVAILABILITY_LABELS } from "@/lib/catalogue";
@@ -89,8 +90,9 @@ export default function ProductOptions({
         <div>
           <p className="font-semibold">Each combination ({variants.length})</p>
           <p className="text-[14px] text-muted">
-            Leave price, cost or code empty to use the product&rsquo;s. Customers can only choose combinations in stock.
+            An empty price, cost or code uses the product&rsquo;s{productPrice ? ` (${CURRENCY_SYMBOL}${productPrice})` : ""}, so only fill in the ones that differ. Customers can only choose combinations in stock.
           </p>
+          <BulkEdit options={toOptions(options)} variants={variants} onApply={(next) => onChange(options, next)} />
           <div className="mt-3 overflow-x-auto rounded-xl border border-line">
             <table className="w-full min-w-[640px] text-left text-[15px]">
               <thead className="border-b border-line text-[13px] text-muted">
@@ -143,5 +145,70 @@ function VariantRow({ v, index, productPrice, onChange }: { v: VariantFormValue;
         </select>
       </td>
     </tr>
+  );
+}
+
+type BulkField = "price" | "supplierCost" | "availability";
+
+/**
+ * Set price, cost or stock on many combinations at once: all of them, or
+ * every combination with one option value (all "2XL", all "Black").
+ */
+function BulkEdit({ options, variants, onApply }: { options: ProductOption[]; variants: VariantFormValue[]; onApply: (v: VariantFormValue[]) => void }) {
+  const [scope, setScope] = useState("all");
+  const [field, setField] = useState<BulkField>("price");
+  const [value, setValue] = useState("");
+  const [done, setDone] = useState("");
+  const cell = "rounded-lg border border-line bg-white px-2 py-1.5";
+
+  const matches = (v: VariantFormValue) => {
+    if (scope === "all") return true;
+    const [i, val] = [Number(scope.split(":")[0]), scope.slice(scope.indexOf(":") + 1)];
+    return v.values[i] === val;
+  };
+  const count = variants.filter(matches).length;
+  const scopeLabel = scope === "all" ? "all combinations" : `every ${scope.slice(scope.indexOf(":") + 1)}`;
+
+  const apply = () => {
+    const v = field === "availability" ? value || "in_stock" : value.trim();
+    onApply(variants.map((x) => (matches(x) ? { ...x, [field]: v } : x)));
+    const what = field === "price" ? "Price" : field === "supplierCost" ? "Supplier cost" : "Stock";
+    setDone(`${what} ${v === "" ? "cleared (uses the product's)" : "set"} for ${count} ${count === 1 ? "combination" : "combinations"}.`);
+  };
+
+  return (
+    <div className="mt-3 rounded-xl bg-mist p-3">
+      <p className="text-[14px] font-semibold">Set for several at once</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[15px]">
+        <select aria-label="Which combinations" value={scope} onChange={(e) => { setScope(e.target.value); setDone(""); }} className={cell}>
+          <option value="all">All combinations</option>
+          {options.map((o, i) => (
+            <optgroup key={o.name} label={o.name}>
+              {o.values.map((val) => (
+                <option key={val} value={`${i}:${val}`}>All {val}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <select aria-label="What to set" value={field} onChange={(e) => { setField(e.target.value as BulkField); setValue(""); setDone(""); }} className={cell}>
+          <option value="price">Price</option>
+          <option value="supplierCost">Supplier cost</option>
+          <option value="availability">Stock</option>
+        </select>
+        {field === "availability" ? (
+          <select aria-label="Stock" value={value || "in_stock"} onChange={(e) => setValue(e.target.value)} className={cell}>
+            {AVAILABILITY.map((a) => (
+              <option key={a} value={a}>{AVAILABILITY_LABELS[a]}</option>
+            ))}
+          </select>
+        ) : (
+          <input aria-label="Amount" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} placeholder={`${CURRENCY_SYMBOL} empty = product's`} className={`tabular w-44 ${cell}`} />
+        )}
+        <button type="button" onClick={apply} disabled={!count} className="rounded-lg border border-ink bg-white px-3 py-1.5 font-semibold hover:bg-ink hover:text-white disabled:opacity-50">
+          Apply to {scopeLabel} ({count})
+        </button>
+      </div>
+      {done && <p role="status" className="mt-2 text-[14px] text-muted">{done}</p>}
+    </div>
   );
 }
