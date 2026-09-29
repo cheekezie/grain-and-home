@@ -13,16 +13,23 @@ export interface Row {
   meta?: string;
 }
 
-export function PageHead({ title, newHref, newLabel, notice }: { title: string; newHref?: string; newLabel?: string; notice?: string }) {
+export function PageHead({ title, newHref, newLabel, notice, extra }: { title: string; newHref?: string; newLabel?: string; notice?: string; extra?: { href: string; label: string } }) {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="font-display text-4xl leading-tight">{title}</h1>
-        {newHref && (
-          <Link href={newHref} className="rounded-lg bg-accent px-4 py-2.5 font-semibold text-white hover:bg-accent-strong">
-            {newLabel}
-          </Link>
-        )}
+        <div className="flex flex-wrap items-center gap-4">
+          {extra && (
+            <Link href={extra.href} className="font-semibold text-accent underline">
+              {extra.label}
+            </Link>
+          )}
+          {newHref && (
+            <Link href={newHref} className="rounded-lg bg-accent px-4 py-2.5 font-semibold text-white hover:bg-accent-strong">
+              {newLabel}
+            </Link>
+          )}
+        </div>
       </div>
       {notice && <p role="status" className="mt-4 rounded-lg bg-accent-soft p-3 font-semibold">{notice}</p>}
     </>

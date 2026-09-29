@@ -5,6 +5,7 @@ export const OPTIMISED_IMAGE_HOSTS = [
   { protocol: "https", hostname: "www.artisanfurniture.net", pathname: "/wp-content/uploads/**" },
   { protocol: "https", hostname: "cdn.shopify.com", pathname: "/s/files/**" },
   { protocol: "https", hostname: "images.unsplash.com", pathname: "/**" },
+  { protocol: "https", hostname: "files.cdn.printful.com", pathname: "/products/**" },
   { protocol: "https", hostname: "upload.wikimedia.org", pathname: "/wikipedia/commons/**" },
 ] as const;
 

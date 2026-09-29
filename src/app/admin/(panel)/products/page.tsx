@@ -12,7 +12,7 @@ export default async function ProductsPage() {
   const supplierName = new Map(suppliers.map((s) => [s.id, s.name]));
   return (
     <div className="w-full">
-      <PageHead title="Products" newHref="/admin/products/new" newLabel="Add product" />
+      <PageHead title="Products" newHref="/admin/products/new" newLabel="Add product" extra={{ href: "/admin/products/import", label: "Import from Printful" }} />
       {suppliers.length === 0 && (
         <p className="mt-4 rounded-xl bg-notice p-4 text-[15px]">Add a supplier first, so each product can be linked to where you buy it.</p>
       )}

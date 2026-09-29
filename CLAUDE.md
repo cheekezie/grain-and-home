@@ -217,3 +217,11 @@ shop-specific is in code any more:
   not-found inside a layout can't set head tags), Back to the shop / Contact,
   category tiles, and "Popular right now" (`getSuggestions`: featured, then
   newest). Admin has its own 404 (`admin/(panel)/not-found.tsx` + catch-all).
+
+## Printful import (2026-09-29)
+
+Admin → Products → "Import from Printful" (`/admin/products/import`): search Printful's public catalogue (no key; `api.printful.com/products`, ~550 items, 2.2MB so kept in memory for a day in `src/lib/admin/printful.ts` rather than Next's 2MB fetch cache), pick a blank, choose colours and sizes (`PrintfulPicker`, max 100 combinations), then it opens **Add product** prefilled via `?printful=<id>&colour=…&size=…` (`printfulDraft`). Nothing is saved until the owner saves in the normal editor, so all product validation still applies.
+
+- Draft gets: name (title before " | "), slug, Printful's description + first sentence as summary, options Colour (google color) then Size (google size, sorted S→6XL), one variant per combination with `supplierSku` = Printful variant id, availability from Printful's `in_stock` (combinations Printful doesn't make: discontinued), one photo per colour tagged `forValue`, the supplier named /printful/i if one exists, and internal notes saying what came from Printful.
+- **Costs**: the public catalogue prices are USD only (v2 prices in other currencies need OAuth). They become `supplierCost` only when `NEXT_PUBLIC_CURRENCY` is USD; otherwise the USD range goes in the notes and the owner enters the cost from their Printful dashboard. Never convert. Blank cost excludes printing, shipping and tax. Retail price is always left for the owner.
+- Photos hotlink `files.cdn.printful.com/products/**` (added to `OPTIMISED_IMAGE_HOSTS`). The catalogue photos are Printful's own blanks on models; the owner's printed-design mockups come from their Printful account, not this import.

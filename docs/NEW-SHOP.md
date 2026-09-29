@@ -84,7 +84,9 @@ the real domain is indexed.
 - [ ] **Categories**: photos, intros, Google descriptions, buying guides.
 - [ ] **Suppliers**: each supplier, its return instructions and email domains.
 - [ ] **Supplier emails → Settings**: the ordering inbox (and the Zoho webhook).
-- [ ] **Products**: add them. Photos are checked automatically for plain
+- [ ] **Products**: add them. For a print-on-demand shop, Products → Import from
+      Printful starts each one from Printful's catalogue (colours, sizes, a photo
+      per colour, Printful's variant codes). Photos are checked automatically for plain
       backgrounds; tag colour photos with their Variant.
 - [ ] Send yourself a test customer email (Supplier emails → Settings) and
       place one real low-value order, then refund it.
